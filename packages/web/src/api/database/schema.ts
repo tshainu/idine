@@ -149,3 +149,41 @@ export const expenses = sqliteTable("expenses", {
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Ingredients (raw materials / stock items)
+export const ingredients = sqliteTable("ingredients", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id),
+  name: text("name").notNull(),
+  unit: text("unit").notNull().default("kg"), // kg | g | litre | ml | pcs | dozen
+  stockQty: real("stock_qty").notNull().default(0),
+  minStockQty: real("min_stock_qty").notNull().default(0),
+  costPerUnit: real("cost_per_unit").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Modifiers (add-ons / customizations for menu items)
+export const modifiers = sqliteTable("modifiers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id),
+  name: text("name").notNull(),           // e.g. "Extra Cheese", "No Onion"
+  groupName: text("group_name").notNull().default("General"), // e.g. "Toppings", "Preferences"
+  price: real("price").notNull().default(0), // 0 = free modifier
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Promotions (discount rules)
+export const promotions = sqliteTable("promotions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("percent"), // percent | flat | bogo
+  value: real("value").notNull().default(0),       // % or flat LKR amount
+  minOrderAmount: real("min_order_amount").notNull().default(0),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

@@ -12,6 +12,9 @@ import { printJobs } from "./routes/print-jobs";
 import { customers } from "./routes/customers";
 import { purchases } from "./routes/purchases";
 import { expenses } from "./routes/expenses";
+import { ingredients } from "./routes/ingredients";
+import { modifiers } from "./routes/modifiers";
+import { promotions } from "./routes/promotions";
 
 const app = new Hono()
   .basePath("api")
@@ -29,7 +32,10 @@ const app = new Hono()
   .route("/print-jobs", printJobs)
   .route("/customers", customers)
   .route("/purchases", purchases)
-  .route("/expenses", expenses);
+  .route("/expenses", expenses)
+  .route("/ingredients", ingredients)
+  .route("/modifiers", modifiers)
+  .route("/promotions", promotions);
 
 export type AppType = typeof app;
 export default app;
