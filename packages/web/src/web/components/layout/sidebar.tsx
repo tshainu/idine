@@ -3,14 +3,15 @@ import { useLocation } from "wouter";
 import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, Tag, SlidersHorizontal,
   TrendingUp, Users, Percent, Monitor, ChefHat, Table2,
-  Settings, BarChart3, LogOut, ChevronDown, ChevronRight,
+  Settings, BarChart3, LogOut, ChevronDown, ChevronRight, Sun, Moon,
 } from "lucide-react";
+import { useTheme } from "../../lib/useTheme";
 
-const GOLD = "#F5A623";
-const SURF = "#1A0A2E";
-const BORD = "#2D1B4E";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
+const GOLD = "var(--color-gold)";
+const SURF = "var(--color-surface)";
+const BORD = "var(--color-border)";
+const MUTED = "var(--color-text-muted)";
+const DIM = "var(--color-text-dim)";
 
 type NavLeaf = { path: string; label: string; icon: any };
 type NavSection = { id: string; label: string; icon: any } & (
@@ -57,6 +58,7 @@ const NAV: NavSection[] = [
 
 export function Sidebar() {
   const [location, navigate] = useLocation();
+  const { isDark, toggle: toggleTheme } = useTheme();
 
   // Only collapsible groups need open state; default all open
   const [open, setOpen] = useState<Record<string, boolean>>({
@@ -163,6 +165,17 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="p-2 border-t shrink-0" style={{ borderColor: BORD }}>
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium mb-1 transition-all"
+          style={{ color: MUTED, background: "transparent" }}
+          onMouseEnter={e => (e.currentTarget.style.background = BORD + "88")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        >
+          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+          {isDark ? "Light Mode" : "Dark Mode"}
+        </button>
         <button
           onClick={() => navigate("/")}
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium"

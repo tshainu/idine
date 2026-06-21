@@ -73,6 +73,7 @@ export const customers = sqliteTable("customers", {
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   phone: text("phone"),
+  address: text("address"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

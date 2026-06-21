@@ -1,7 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
-:root {
+:root,
+[data-theme="dark"] {
   --color-bg: #0D0618;
   --color-surface: #1A0A2E;
   --color-surface-2: #241040;
@@ -19,6 +20,42 @@
   --color-text: #F8F4FF;
   --color-text-muted: #A898C8;
   --color-text-dim: #6B5A8E;
+  /* theme tokens */
+  --bg: #0D0618;
+  --surf: #1A0A2E;
+  --surf2: #241040;
+  --bord: #2D1B4E;
+  --text: #F3F4F6;
+  --muted: #9CA3AF;
+  --dim: #6B7280;
+}
+
+[data-theme="light"] {
+  --color-bg: #F5F5F5;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F0EDF8;
+  --color-border: #D1C4E9;
+  --color-gold: #D97706;
+  --color-gold-dark: #B45309;
+  --color-gold-light: #F59E0B;
+  --color-purple: #7C3AED;
+  --color-purple-light: #A78BFA;
+  --color-success: #16A34A;
+  --color-warning: #CA8A04;
+  --color-danger: #DC2626;
+  --color-info: #0284C7;
+  --color-pink: #DB2777;
+  --color-text: #111827;
+  --color-text-muted: #4B5563;
+  --color-text-dim: #9CA3AF;
+  /* theme tokens */
+  --bg: #F5F5F5;
+  --surf: #FFFFFF;
+  --surf2: #F0EDF8;
+  --bord: #E5E7EB;
+  --text: #111827;
+  --muted: #4B5563;
+  --dim: #9CA3AF;
 }
 
 * { box-sizing: border-box; }

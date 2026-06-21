@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Search, Phone, User, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Phone, User, Star, MapPin, Calendar } from "lucide-react";
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -12,6 +12,26 @@ const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
 const TEXT = "#F3F4F6";
+
+function qualityScore(orderCnt: number, spent: number, createdAt: string | null): number {
+  if (orderCnt === 0) return 10; // new customers start at 10
+  const base = Math.min(5, orderCnt * 0.5);
+  const spendScore = Math.min(3, spent / 5000);
+  // regularity bonus: orders per month
+  let regularityBonus = 0;
+  if (createdAt) {
+    const months = Math.max(1, (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30));
+    const opm = orderCnt / months;
+    regularityBonus = Math.min(2, opm * 0.5);
+  }
+  return Math.min(10, parseFloat((base + spendScore + regularityBonus).toFixed(1)));
+}
+
+function scoreColor(score: number) {
+  if (score >= 8) return "#22C55E";
+  if (score >= 5) return "#F5A623";
+  return "#EF4444";
+}
 
 export default function CustomersPage() {
   const branchId = getBranchId();
@@ -38,7 +58,8 @@ export default function CustomersPage() {
   const filtered = customers.filter(c =>
     !search ||
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone || "").includes(search)
+    (c.phone || "").includes(search) ||
+    (c.address || "").toLowerCase().includes(search.toLowerCase())
   );
 
   function orderCount(customerId: number) {
@@ -46,6 +67,12 @@ export default function CustomersPage() {
   }
   function totalSpent(customerId: number) {
     return orders.filter(o => o.customerId === customerId).reduce((s, o) => s + (Number(o.total) || 0), 0);
+  }
+  function ordersPerMonth(customerId: number, createdAt: string | null): string {
+    const cnt = orderCount(customerId);
+    if (!createdAt || cnt === 0) return "—";
+    const months = Math.max(1, (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30));
+    return (cnt / months).toFixed(1) + "/mo";
   }
 
   const createCustomer = useMutation({
@@ -64,12 +91,16 @@ export default function CustomersPage() {
   function resetForm() { setShowForm(false); setEditItem(null); setForm({}); }
   function openEdit(c: any) {
     setEditItem(c);
-    setForm({ name: c.name, phone: c.phone || "" });
+    setForm({ name: c.name, phone: c.phone || "", address: c.address || "" });
     setShowForm(true);
   }
   function handleSubmit() {
     if (!form.name?.trim()) return;
-    const data = { name: form.name.trim(), phone: form.phone?.trim() || null };
+    const data = {
+      name: form.name.trim(),
+      phone: form.phone?.trim() || null,
+      address: form.address?.trim() || null,
+    };
     if (editItem) updateCustomer.mutate({ id: editItem.id, data });
     else createCustomer.mutate(data);
   }
@@ -100,6 +131,7 @@ export default function CustomersPage() {
                 const now = new Date();
                 return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
               }).length, color: "#22C55E" },
+              { label: "Regulars (≥5 orders)", value: customers.filter(c => orderCount(c.id) >= 5).length, color: "#A78BFA" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -111,7 +143,7 @@ export default function CustomersPage() {
           {/* Search */}
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: DIM }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone..."
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, phone or address..."
               className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
               style={{ background: SURF, borderColor: BORD, color: TEXT }} />
           </div>
@@ -121,58 +153,85 @@ export default function CustomersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${BORD}` }}>
-                  {["Customer", "Phone", "Orders", "Total Spent", "Joined", "Actions"].map(h => (
+                  {["Customer", "Phone", "Address", "Orders", "Total Spent", "Regularity", "Quality", "Since", "Actions"].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-xs" style={{ color: DIM }}>Loading...</td></tr>
+                  <tr><td colSpan={9} className="text-center py-10 text-xs" style={{ color: DIM }}>Loading...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-10" style={{ color: DIM }}>
+                  <tr><td colSpan={9} className="text-center py-10" style={{ color: DIM }}>
                     <User size={32} className="mx-auto mb-2 opacity-30" />
                     <p className="text-xs">No customers found</p>
                   </td></tr>
-                ) : filtered.map((c: any) => (
-                  <tr key={c.id} className="border-t" style={{ borderColor: BORD }}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                          style={{ background: "rgba(245,166,35,0.2)", color: GOLD }}>
-                          {c.name.charAt(0).toUpperCase()}
+                ) : filtered.map((c: any) => {
+                  const cnt = orderCount(c.id);
+                  const spent = totalSpent(c.id);
+                  const score = qualityScore(cnt, spent, c.createdAt);
+                  const color = scoreColor(score);
+                  return (
+                    <tr key={c.id} className="border-t" style={{ borderColor: BORD }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                            style={{ background: "rgba(245,166,35,0.2)", color: GOLD }}>
+                            {c.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: TEXT }}>{c.name}</span>
                         </div>
-                        <span className="text-xs font-medium" style={{ color: TEXT }}>{c.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>
-                      {c.phone ? (
-                        <span className="flex items-center gap-1"><Phone size={11} />{c.phone}</span>
-                      ) : <span style={{ color: DIM }}>—</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(245,166,35,0.15)", color: GOLD }}>
-                        {orderCount(c.id)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-semibold" style={{ color: "#22C55E" }}>
-                      LKR {totalSpent(c.id).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: DIM }}>
-                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(c)} className="p-1 rounded" style={{ color: GOLD }}>
-                          <Pencil size={13} />
-                        </button>
-                        <button onClick={() => { if (confirm(`Delete ${c.name}?`)) deleteCustomer.mutate(c.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>
+                        {c.phone ? (
+                          <span className="flex items-center gap-1"><Phone size={11} />{c.phone}</span>
+                        ) : <span style={{ color: DIM }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: MUTED, maxWidth: 140 }}>
+                        {c.address ? (
+                          <span className="flex items-center gap-1 truncate" title={c.address}>
+                            <MapPin size={11} className="shrink-0" />{c.address}
+                          </span>
+                        ) : <span style={{ color: DIM }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(245,166,35,0.15)", color: GOLD }}>
+                          {cnt}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: "#22C55E" }}>
+                        LKR {spent.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>
+                        {ordersPerMonth(c.id, c.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <Star size={11} color={color} fill={color} />
+                          <span className="text-xs font-bold" style={{ color }}>{score}/10</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: DIM }}>
+                        {c.createdAt ? (
+                          <span className="flex items-center gap-1">
+                            <Calendar size={11} />
+                            {new Date(c.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEdit(c)} className="p-1 rounded" style={{ color: GOLD }}>
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => { if (confirm(`Delete ${c.name}?`)) deleteCustomer.mutate(c.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -196,6 +255,13 @@ export default function CustomersPage() {
                 <input value={form.phone || ""} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
                   className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
                   style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="07X XXX XXXX" />
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: MUTED }}>Address</label>
+                <textarea value={form.address || ""} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none resize-none"
+                  style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="Street, City..." />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">

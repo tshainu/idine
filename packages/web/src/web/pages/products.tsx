@@ -58,10 +58,21 @@ export default function ProductsPage() {
     mutationFn: async (id: number) => (await api["menu-items"][":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products-menu"] }),
   });
-  // FIX: use isActive not available
   const toggleActive = useMutation({
     mutationFn: async ({ id, isActive }: any) => (await api["menu-items"][":id"].$patch({ param: { id: String(id) }, json: { isActive } })).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products-menu"] }),
+    onMutate: async ({ id, isActive }) => {
+      await qc.cancelQueries({ queryKey: ["products-menu", branchId] });
+      const prev = qc.getQueryData(["products-menu", branchId]);
+      qc.setQueryData(["products-menu", branchId], (old: any) => {
+        if (!old?.menuItems) return old;
+        return { ...old, menuItems: old.menuItems.map((m: any) => m.id === id ? { ...m, isActive } : m) };
+      });
+      return { prev };
+    },
+    onError: (_err, _vars, ctx: any) => {
+      if (ctx?.prev) qc.setQueryData(["products-menu", branchId], ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["products-menu"] }),
   });
 
   function resetForm() { setShowForm(false); setEditItem(null); setForm({}); }
