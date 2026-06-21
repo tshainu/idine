@@ -16,6 +16,7 @@ import { ingredients } from "./routes/ingredients";
 import { modifiers } from "./routes/modifiers";
 import { promotions } from "./routes/promotions";
 import { settings } from "./routes/settings";
+import { variations } from "./routes/variations";
 
 const app = new Hono()
   .basePath("api")
@@ -37,7 +38,8 @@ const app = new Hono()
   .route("/ingredients", ingredients)
   .route("/modifiers", modifiers)
   .route("/promotions", promotions)
-  .route("/settings", settings);
+  .route("/settings", settings)
+  .route("/variations", variations);
 
 export type AppType = typeof app;
 export default app;

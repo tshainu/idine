@@ -49,13 +49,32 @@ export const menuItems = sqliteTable("menu_items", {
   categoryId: integer("category_id").references(() => categories.id),
   printerId: integer("printer_id").references(() => printers.id),
   name: text("name").notNull(),
-  price: real("price").notNull(),
+  code: text("code"),
+  price: real("price").notNull().default(0),          // base / dine-in price (legacy compat)
+  priceDineIn: real("price_dine_in").notNull().default(0),
+  priceTakeaway: real("price_takeaway").notNull().default(0),
+  priceDelivery: real("price_delivery").notNull().default(0),
+  description: text("description"),
   imageUrl: text("image_url"),
+  loyaltyPoint: real("loyalty_point").notNull().default(0),
   isVeg: integer("is_veg", { mode: "boolean" }).notNull().default(false),
   isBeverage: integer("is_beverage", { mode: "boolean" }).notNull().default(false),
   isPromo: integer("is_promo", { mode: "boolean" }).notNull().default(false),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// Menu item variations (e.g. Small / Medium / Large)
+export const menuItemVariations = sqliteTable("menu_item_variations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  menuItemId: integer("menu_item_id").references(() => menuItems.id).notNull(),
+  name: text("name").notNull(),
+  code: text("code"),
+  priceDineIn: real("price_dine_in").notNull().default(0),
+  priceTakeaway: real("price_takeaway").notNull().default(0),
+  priceDelivery: real("price_delivery").notNull().default(0),
+  loyaltyPoint: real("loyalty_point").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
 
 // Tables (restaurant floor tables)
