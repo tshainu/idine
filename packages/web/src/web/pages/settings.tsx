@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
@@ -413,6 +413,33 @@ function LoyaltyWallet({ onBack }: { onBack: () => void }) {
   );
 }
 
+const DEFAULTS = {
+  restaurantName: "Delizz Restaurant",
+  restaurantShortName: "DR",
+  website: "www.delizz.com",
+  dateFormat: "D/M/Y",
+  timezone: "Asia/Colombo",
+  currencySymbol: "LKR",
+  currencyPosition: "Before Amount",
+  precision: "2 Digit",
+  decimalSeparator: "Dot(.)",
+  thousandSeparator: "Comma(,)",
+  posClickBehavior: "Show Options",
+  defaultOrderType: "Dine In",
+  defaultDeliveryPartner: "None",
+  defaultWaiter: "",
+  defaultCustomer: "Walk-in Customer",
+  defaultPaymentMethod: "Cash",
+  placeOrderTooltip: "Show",
+  foodMenuTooltip: "Show",
+  smsSendAuto: "Yes",
+  prePostPayment: "Post Payment",
+  serviceCharge: "10%",
+  deliveryCharge: "15%",
+  exportDailySales: "Enable",
+  invoiceFooter: "Thank you for visiting us!\niDine POS || Powered By AxisXNOR",
+};
+
 // Main Settings page
 export default function SettingsPage() {
   const branchId = getBranchId();
@@ -428,31 +455,28 @@ export default function SettingsPage() {
   });
   const users: any[] = (usersData as any)?.users || [];
 
-  const [form, setForm] = useState({
-    restaurantName: "Delizz Restaurant",
-    restaurantShortName: "DR",
-    website: "www.delizz.com",
-    dateFormat: "D/M/Y",
-    timezone: "Asia/Colombo",
-    currencySymbol: "LKR",
-    currencyPosition: "Before Amount",
-    precision: "2 Digit",
-    decimalSeparator: "Dot(.)",
-    thousandSeparator: "Comma(,)",
-    posClickBehavior: "Show Options",
-    defaultOrderType: "Dine In",
-    defaultDeliveryPartner: "None",
-    defaultWaiter: "",
-    defaultCustomer: "Walk-in Customer",
-    defaultPaymentMethod: "Cash",
-    placeOrderTooltip: "Show",
-    foodMenuTooltip: "Show",
-    smsSendAuto: "Yes",
-    prePostPayment: "Post Payment",
-    serviceCharge: "10%",
-    deliveryCharge: "15%",
-    exportDailySales: "Enable",
-    invoiceFooter: "Thank you for visiting us!\niDine POS || Powered By AxisXNOR",
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+
+  const [form, setForm] = useState({ ...DEFAULTS });
+
+  useEffect(() => {
+    const remote = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (remote && Object.keys(remote).length > 0) {
+      setForm(f => ({ ...f, ...remote }));
+    }
+  }, [settingsData]);
+
+  const saveSettings = useMutation({
+    mutationFn: async (data: Record<string, string>) =>
+      (await api.settings.$post({ json: { branchId, settings: data } })).json(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings", branchId] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    },
   });
 
   function set(key: keyof typeof form) {
@@ -461,8 +485,7 @@ export default function SettingsPage() {
   }
 
   function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    saveSettings.mutate(form as unknown as Record<string, string>);
   }
 
   if (subPage === "outlet") return (

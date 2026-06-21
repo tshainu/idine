@@ -48,15 +48,15 @@ export default function ProductsPage() {
 
   const createItem = useMutation({
     mutationFn: async (data: any) => (await api["menu-items"].$post({ json: { ...data, branchId } })).json(),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products-menu"] }); resetForm(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products-menu", branchId] }); resetForm(); },
   });
   const updateItem = useMutation({
     mutationFn: async ({ id, data }: any) => (await api["menu-items"][":id"].$patch({ param: { id: String(id) }, json: data })).json(),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products-menu"] }); resetForm(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products-menu", branchId] }); resetForm(); },
   });
   const deleteItem = useMutation({
     mutationFn: async (id: number) => (await api["menu-items"][":id"].$delete({ param: { id: String(id) } })).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products-menu"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["products-menu", branchId] }),
   });
   const toggleActive = useMutation({
     mutationFn: async ({ id, isActive }: any) => (await api["menu-items"][":id"].$patch({ param: { id: String(id) }, json: { isActive } })).json(),
@@ -72,7 +72,7 @@ export default function ProductsPage() {
     onError: (_err, _vars, ctx: any) => {
       if (ctx?.prev) qc.setQueryData(["products-menu", branchId], ctx.prev);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["products-menu"] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["products-menu", branchId] }),
   });
 
   function resetForm() { setShowForm(false); setEditItem(null); setForm({}); }

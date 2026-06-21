@@ -175,6 +175,14 @@ export const modifiers = sqliteTable("modifiers", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// Branch settings (key-value store per branch)
+export const branchSettings = sqliteTable("branch_settings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id).notNull(),
+  key: text("key").notNull(),
+  value: text("value"),
+});
+
 // Promotions (discount rules)
 export const promotions = sqliteTable("promotions", {
   id: integer("id").primaryKey({ autoIncrement: true }),

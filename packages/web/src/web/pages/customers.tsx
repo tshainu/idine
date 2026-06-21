@@ -14,7 +14,7 @@ const DIM = "#6B7280";
 const TEXT = "#F3F4F6";
 
 function qualityScore(orderCnt: number, spent: number, createdAt: string | null): number {
-  if (orderCnt === 0) return 10; // new customers start at 10
+  if (orderCnt === 0) return 3; // new customers default to 3
   const base = Math.min(5, orderCnt * 0.5);
   const spendScore = Math.min(3, spent / 5000);
   // regularity bonus: orders per month
