@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, like, or } from "drizzle-orm";
+import { eq, like, or, desc } from "drizzle-orm";
 
 export const customers = new Hono()
   .get("/", async (c) => {
@@ -29,4 +29,9 @@ export const customers = new Hono()
     const body = await c.req.json();
     const [customer] = await db.update(schema.customers).set(body).where(eq(schema.customers.id, id)).returning();
     return c.json({ customer }, 200);
+  })
+  .delete("/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    await db.delete(schema.customers).where(eq(schema.customers.id, id));
+    return c.json({ ok: true }, 200);
   });

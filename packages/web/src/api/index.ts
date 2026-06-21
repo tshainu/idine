@@ -10,6 +10,8 @@ import { orders } from "./routes/orders";
 import { orderItems } from "./routes/order-items";
 import { printJobs } from "./routes/print-jobs";
 import { customers } from "./routes/customers";
+import { purchases } from "./routes/purchases";
+import { expenses } from "./routes/expenses";
 
 const app = new Hono()
   .basePath("api")
@@ -25,7 +27,9 @@ const app = new Hono()
   .route("/orders", orders)
   .route("/order-items", orderItems)
   .route("/print-jobs", printJobs)
-  .route("/customers", customers);
+  .route("/customers", customers)
+  .route("/purchases", purchases)
+  .route("/expenses", expenses);
 
 export type AppType = typeof app;
 export default app;

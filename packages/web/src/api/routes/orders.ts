@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, and, desc, ne } from "drizzle-orm";
+import { eq, and, desc, ne, inArray } from "drizzle-orm";
 
 function generateOrderNumber(id: number): string {
   return `ORD-${String(id).padStart(4, "0")}`;
@@ -19,7 +19,20 @@ export const orders = new Hono()
     const all = conditions.length
       ? await db.select().from(schema.orders).where(and(...conditions)).orderBy(desc(schema.orders.createdAt))
       : await db.select().from(schema.orders).orderBy(desc(schema.orders.createdAt));
-    return c.json({ orders: all }, 200);
+
+    // Always include items
+    let ordersWithItems: any[] = all;
+    if (all.length > 0) {
+      const orderIds = all.map((o) => o.id);
+      const allItems = await db.select().from(schema.orderItems).where(inArray(schema.orderItems.orderId, orderIds));
+      const itemsByOrder: Record<number, any[]> = {};
+      for (const item of allItems) {
+        if (!itemsByOrder[item.orderId!]) itemsByOrder[item.orderId!] = [];
+        itemsByOrder[item.orderId!].push(item);
+      }
+      ordersWithItems = all.map((o) => ({ ...o, items: itemsByOrder[o.id] || [] }));
+    }
+    return c.json({ orders: ordersWithItems }, 200);
   })
   .post("/", async (c) => {
     const body = await c.req.json();

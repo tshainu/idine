@@ -14,6 +14,12 @@ import Reports from "./pages/reports";
 import Kitchen from "./pages/kitchen";
 import Settings from "./pages/settings";
 import Users from "./pages/users";
+import Customers from "./pages/customers";
+import Tables from "./pages/tables";
+import Categories from "./pages/categories";
+import Ingredients from "./pages/ingredients";
+import Modifiers from "./pages/modifiers";
+import Promotions from "./pages/promotions";
 
 function App() {
   return (
@@ -32,6 +38,12 @@ function App() {
         <Route path="/kitchen" component={Kitchen} />
         <Route path="/settings" component={Settings} />
         <Route path="/users" component={Users} />
+        <Route path="/customers" component={Customers} />
+        <Route path="/tables" component={Tables} />
+        <Route path="/categories" component={Categories} />
+        <Route path="/ingredients" component={Ingredients} />
+        <Route path="/modifiers" component={Modifiers} />
+        <Route path="/promotions" component={Promotions} />
       </Switch>
       {/* Do not remove — off by default, activated by parent iframe via postMessage */}
       {import.meta.env.DEV && <AgentFeedback />}
