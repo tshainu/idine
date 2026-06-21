@@ -176,22 +176,66 @@ function TaxSetting({ onBack }: { onBack: () => void }) {
 
 // Sub-page: Payment Methods
 function PaymentMethods({ onBack }: { onBack: () => void }) {
-  const [methods] = useState(["Cash", "Card", "Online Transfer"]);
+  const DEFAULT = ["Cash", "Card", "Online Transfer", "Bank Transfer"];
+  const [methods, setMethods] = useState<{ name: string; active: boolean }[]>(
+    DEFAULT.map(n => ({ name: n, active: n === "Cash" || n === "Card" }))
+  );
+  const [newName, setNewName] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  function toggle(idx: number) {
+    setMethods(prev => prev.map((m, i) => i === idx ? { ...m, active: !m.active } : m));
+  }
+  function addMethod() {
+    const name = newName.trim();
+    if (!name || methods.find(m => m.name.toLowerCase() === name.toLowerCase())) return;
+    setMethods(prev => [...prev, { name, active: true }]);
+    setNewName("");
+  }
+  function removeMethod(idx: number) {
+    setMethods(prev => prev.filter((_, i) => i !== idx));
+  }
+  function handleSave() {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
   return (
     <div className="max-w-xl mx-auto">
       <div className="rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
         <div className="px-6 py-5 border-b" style={{ borderColor: BORD }}>
           <h2 className="text-xl font-bold" style={{ color: TEXT }}>Payment Methods</h2>
+          <p className="text-xs mt-1" style={{ color: MUTED }}>Enable or disable payment methods shown at checkout.</p>
         </div>
         <div className="p-6 space-y-3">
-          {methods.map(m => (
-            <div key={m} className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: BORD, background: BG }}>
-              <span className="text-sm font-medium" style={{ color: TEXT }}>{m}</span>
-              <span className="text-xs px-2 py-0.5 rounded" style={{ background: GOLD + "22", color: GOLD }}>Active</span>
+          {methods.map((m, idx) => (
+            <div key={m.name} className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: BORD, background: BG }}>
+              <span className="text-sm font-medium" style={{ color: TEXT }}>{m.name}</span>
+              <div className="flex items-center gap-3">
+                <button onClick={() => toggle(idx)}
+                  className="text-xs px-2.5 py-1 rounded-full font-medium transition-all"
+                  style={{ background: m.active ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: m.active ? "#4ADE80" : "#F87171" }}>
+                  {m.active ? "Active" : "Disabled"}
+                </button>
+                <button onClick={() => removeMethod(idx)} className="text-xs" style={{ color: "#EF4444" }}>✕</button>
+              </div>
             </div>
           ))}
-          <div className="text-xs mt-2" style={{ color: DIM }}>Payment method management coming soon.</div>
-          <button onClick={onBack} className="mt-4 px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+          {/* Add new */}
+          <div className="flex gap-2 mt-4">
+            <input
+              value={newName} onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addMethod()}
+              placeholder="Add payment method..."
+              className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
+              style={{ background: BG, borderColor: BORD, color: TEXT }}
+            />
+            <button onClick={addMethod} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>Add</button>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={handleSave} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>{saved ? "Saved!" : "Save"}</button>
+            <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+          </div>
         </div>
       </div>
     </div>
@@ -257,15 +301,76 @@ function PrinterSetup({ onBack }: { onBack: () => void }) {
 
 // Sub-page: Delivery Partners
 function DeliveryPartners({ onBack }: { onBack: () => void }) {
+  const [partners, setPartners] = useState([
+    { name: "PickMe Food", apiKey: "", active: false },
+    { name: "Uber Eats", apiKey: "", active: false },
+    { name: "Swiggy", apiKey: "", active: false },
+  ]);
+  const [newPartner, setNewPartner] = useState({ name: "", apiKey: "" });
+  const [saved, setSaved] = useState(false);
+
+  function toggle(idx: number) {
+    setPartners(prev => prev.map((p, i) => i === idx ? { ...p, active: !p.active } : p));
+  }
+  function setField(idx: number, key: "name" | "apiKey", value: string) {
+    setPartners(prev => prev.map((p, i) => i === idx ? { ...p, [key]: value } : p));
+  }
+  function addPartner() {
+    if (!newPartner.name.trim()) return;
+    setPartners(prev => [...prev, { ...newPartner, active: true }]);
+    setNewPartner({ name: "", apiKey: "" });
+  }
+  function remove(idx: number) {
+    setPartners(prev => prev.filter((_, i) => i !== idx));
+  }
+
   return (
     <div className="max-w-xl mx-auto">
       <div className="rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
         <div className="px-6 py-5 border-b" style={{ borderColor: BORD }}>
           <h2 className="text-xl font-bold" style={{ color: TEXT }}>Delivery Partners</h2>
+          <p className="text-xs mt-1" style={{ color: MUTED }}>Configure third-party delivery platform integrations.</p>
         </div>
-        <div className="p-6">
-          <div className="text-center py-10 text-xs" style={{ color: DIM }}>No delivery partners configured. Coming soon.</div>
-          <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+        <div className="p-6 space-y-3">
+          {partners.map((p, idx) => (
+            <div key={idx} className="rounded-xl border p-4 space-y-3" style={{ borderColor: BORD, background: BG }}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold" style={{ color: TEXT }}>{p.name}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggle(idx)}
+                    className="text-xs px-2.5 py-1 rounded-full font-medium"
+                    style={{ background: p.active ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: p.active ? "#4ADE80" : "#F87171" }}>
+                    {p.active ? "Active" : "Disabled"}
+                  </button>
+                  <button onClick={() => remove(idx)} className="text-xs" style={{ color: "#EF4444" }}>✕</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: MUTED }}>API Key / Token</label>
+                <input value={p.apiKey} onChange={e => setField(idx, "apiKey", e.target.value)}
+                  placeholder="Enter API key..."
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{ background: SURF, borderColor: BORD, color: TEXT }} />
+              </div>
+            </div>
+          ))}
+          {/* Add new partner */}
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: BORD, background: BG }}>
+            <div className="text-xs font-semibold" style={{ color: MUTED }}>Add New Partner</div>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={newPartner.name} onChange={e => setNewPartner(p => ({ ...p, name: e.target.value }))}
+                placeholder="Partner name" className="px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{ background: SURF, borderColor: BORD, color: TEXT }} />
+              <input value={newPartner.apiKey} onChange={e => setNewPartner(p => ({ ...p, apiKey: e.target.value }))}
+                placeholder="API key (optional)" className="px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{ background: SURF, borderColor: BORD, color: TEXT }} />
+            </div>
+            <button onClick={addPartner} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>Add Partner</button>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>{saved ? "Saved!" : "Save"}</button>
+            <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,109 +1,66 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import {
-  LayoutDashboard, ShoppingCart, TrendingUp, BarChart3, Package,
-  Receipt, Settings, Printer, Users, UtensilsCrossed, LogOut,
-  ChevronDown, ChevronRight, Tag, Utensils, ShoppingBag, Monitor,
-  Coffee, BookOpen, Building2, Table2, Globe, Percent, Wallet,
-  Star, Truck, CreditCard
+  LayoutDashboard, ShoppingCart, UtensilsCrossed, Tag, SlidersHorizontal,
+  TrendingUp, Users, Percent, Monitor, ChefHat, Table2,
+  Settings, BarChart3, LogOut, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 const GOLD = "#F5A623";
-const BG = "#0D0618";
 const SURF = "#1A0A2E";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
 
-type NavItem = { path: string; label: string; icon?: any };
-type NavGroup = { id: string; label: string; icon: any; items: NavItem[] };
+type NavLeaf = { path: string; label: string; icon: any };
+type NavSection = { id: string; label: string; icon: any } & (
+  | { type: "link"; path: string }
+  | { type: "group"; items: NavLeaf[] }
+);
 
-const GROUPS: NavGroup[] = [
+const NAV: NavSection[] = [
+  { id: "dashboard", type: "link", label: "Dashboard", icon: LayoutDashboard, path: "/home" },
+  { id: "pos", type: "link", label: "POS", icon: ShoppingCart, path: "/pos" },
   {
-    id: "main",
-    label: "Main",
-    icon: LayoutDashboard,
+    id: "item", type: "group", label: "Item", icon: UtensilsCrossed,
     items: [
-      { path: "/home", label: "Dashboard", icon: LayoutDashboard },
-      { path: "/pos", label: "POS", icon: ShoppingCart },
-      { path: "/kds", label: "Kitchen Display", icon: Monitor },
+      { path: "/products",   label: "List Item",     icon: UtensilsCrossed },
+      { path: "/categories", label: "List Category",  icon: Tag },
+      { path: "/modifiers",  label: "List Modifiers", icon: SlidersHorizontal },
     ],
   },
   {
-    id: "sale",
-    label: "Sale",
-    icon: ShoppingBag,
+    id: "sales", type: "group", label: "Sales", icon: TrendingUp,
     items: [
-      { path: "/sales", label: "List Sale", icon: TrendingUp },
-      { path: "/customers", label: "List Customer", icon: Users },
-      { path: "/promotions", label: "List Promotion", icon: Star },
+      { path: "/sales",       label: "List of Sales", icon: TrendingUp },
+      { path: "/customers",   label: "Customers",     icon: Users },
+      { path: "/promotions",  label: "Promotions",    icon: Percent },
     ],
   },
   {
-    id: "item",
-    label: "Item",
-    icon: UtensilsCrossed,
+    id: "panel", type: "group", label: "Panel", icon: Monitor,
     items: [
-      { path: "/products", label: "List Food Menu", icon: UtensilsCrossed },
-      { path: "/categories", label: "List Menu Category", icon: Tag },
-      { path: "/ingredients", label: "List Ingredient", icon: Utensils },
-      { path: "/modifiers", label: "List Modifier", icon: BookOpen },
+      { path: "/pos",      label: "POS",             icon: ShoppingCart },
+      { path: "/kds",      label: "Kitchen Display", icon: ChefHat },
+      { path: "/tables",   label: "Tables",          icon: Table2 },
     ],
   },
   {
-    id: "purchase",
-    label: "Purchase",
-    icon: Package,
+    id: "users", type: "group", label: "Users", icon: Users,
     items: [
-      { path: "/purchase", label: "List Purchase", icon: Package },
-      { path: "/expenses", label: "List Expense", icon: Receipt },
+      { path: "/users", label: "List Users", icon: Users },
     ],
   },
-  {
-    id: "panel",
-    label: "Panel",
-    icon: Monitor,
-    items: [
-      { path: "/kitchen", label: "Kitchen Setup", icon: Printer },
-      { path: "/users", label: "Users / Waiters", icon: Users },
-      { path: "/tables", label: "Tables", icon: Table2 },
-      { path: "/admin", label: "Admin", icon: Building2 },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    icon: BarChart3,
-    items: [
-      { path: "/reports", label: "Sales Report", icon: BarChart3 },
-    ],
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Settings,
-    items: [
-      { path: "/settings", label: "General Settings", icon: Settings },
-      { path: "/settings/outlet", label: "Outlet Setting", icon: Building2 },
-      { path: "/settings/tax", label: "Tax Setting", icon: Percent },
-      { path: "/settings/payment", label: "Payment Methods", icon: CreditCard },
-      { path: "/settings/printers", label: "Printer Setup", icon: Printer },
-      { path: "/settings/delivery", label: "Delivery Partners", icon: Truck },
-      { path: "/settings/loyalty", label: "Loyalty & Wallet", icon: Wallet },
-    ],
-  },
+  { id: "settings", type: "link", label: "Settings", icon: Settings, path: "/settings" },
+  { id: "reports",  type: "link", label: "Reports",  icon: BarChart3, path: "/reports" },
 ];
 
 export function Sidebar() {
   const [location, navigate] = useLocation();
+
+  // Only collapsible groups need open state; default all open
   const [open, setOpen] = useState<Record<string, boolean>>({
-    main: true,
-    sale: false,
-    item: false,
-    purchase: false,
-    panel: false,
-    reports: false,
-    settings: false,
+    item: true, sales: false, panel: false, users: true,
   });
 
   function toggle(id: string) {
@@ -111,11 +68,12 @@ export function Sidebar() {
   }
 
   function isActive(path: string) {
-    return location === path || (path !== "/home" && path !== "/" && location.startsWith(path));
+    if (path === "/home") return location === "/home";
+    return location === path || location.startsWith(path + "/");
   }
 
-  function groupHasActive(group: NavGroup) {
-    return group.items.some(item => isActive(item.path));
+  function groupHasActive(items: NavLeaf[]) {
+    return items.some(i => isActive(i.path));
   }
 
   return (
@@ -135,48 +93,63 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2">
-        {GROUPS.map(group => {
-          const isOpen = open[group.id];
-          const hasActive = groupHasActive(group);
+        {NAV.map(section => {
+          if (section.type === "link") {
+            const active = isActive(section.path);
+            return (
+              <button
+                key={section.id}
+                onClick={() => navigate(section.path)}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold transition-all text-left"
+                style={{
+                  background: active ? GOLD + "22" : "transparent",
+                  color: active ? GOLD : MUTED,
+                  borderLeft: active ? `2px solid ${GOLD}` : "2px solid transparent",
+                }}
+              >
+                <section.icon size={14} />
+                {section.label}
+              </button>
+            );
+          }
+
+          // group
+          const isOpen = open[section.id] ?? false;
+          const hasActive = groupHasActive(section.items);
 
           return (
-            <div key={group.id}>
-              {/* Group header */}
+            <div key={section.id}>
               <button
-                onClick={() => toggle(group.id)}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-all"
+                onClick={() => toggle(section.id)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold transition-all"
                 style={{
                   color: hasActive ? GOLD : MUTED,
                   background: hasActive && !isOpen ? GOLD + "11" : "transparent",
                 }}
               >
                 <div className="flex items-center gap-2">
-                  <group.icon size={14} />
-                  {group.label}
+                  <section.icon size={14} />
+                  {section.label}
                 </div>
-                {isOpen
-                  ? <ChevronDown size={12} />
-                  : <ChevronRight size={12} />
-                }
+                {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </button>
 
-              {/* Group items */}
               {isOpen && (
                 <div className="pb-1">
-                  {group.items.map(item => {
+                  {section.items.map(item => {
                     const active = isActive(item.path);
                     return (
                       <button
-                        key={item.path}
+                        key={item.path + item.label}
                         onClick={() => navigate(item.path)}
-                        className="w-full flex items-center gap-2.5 pl-7 pr-3 py-2 text-xs font-medium transition-all text-left"
+                        className="w-full flex items-center gap-2.5 pl-8 pr-3 py-2 text-xs font-medium transition-all text-left"
                         style={{
                           background: active ? GOLD + "22" : "transparent",
                           color: active ? GOLD : DIM,
                           borderLeft: active ? `2px solid ${GOLD}` : "2px solid transparent",
                         }}
                       >
-                        {item.icon && <item.icon size={12} />}
+                        <item.icon size={12} />
                         {item.label}
                       </button>
                     );
@@ -192,7 +165,7 @@ export function Sidebar() {
       <div className="p-2 border-t shrink-0" style={{ borderColor: BORD }}>
         <button
           onClick={() => navigate("/")}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all"
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium"
           style={{ color: "#EF4444" }}
         >
           <LogOut size={14} />
