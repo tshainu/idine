@@ -7,10 +7,14 @@ export const menuItems = new Hono()
   .get("/", async (c) => {
     const branchId = c.req.query("branchId");
     const categoryId = c.req.query("categoryId");
-    const conditions = [eq(schema.menuItems.isActive, true)];
+    const conditions = [];
     if (branchId) conditions.push(eq(schema.menuItems.branchId, parseInt(branchId)));
     if (categoryId) conditions.push(eq(schema.menuItems.categoryId, parseInt(categoryId)));
-    const items = await db.select().from(schema.menuItems).where(and(...conditions)).orderBy(asc(schema.menuItems.sortOrder));
+    const items = await db
+      .select()
+      .from(schema.menuItems)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(schema.menuItems.sortOrder));
     return c.json({ menuItems: items }, 200);
   })
   .post("/", async (c) => {
