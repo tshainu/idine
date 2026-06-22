@@ -439,117 +439,323 @@ function OrderDetailsModal({ order, items, onClose, onCreateInvoice }: {
   );
 }
 
-/** Bill modal — pre-payment summary */
-function BillModal({ order, items, onClose }: { order: any; items: any[]; onClose: () => void }) {
-  const subtotal = items.reduce((s: number, i: any) => s + (i.total ?? i.qty * i.price), 0);
-  const discount = items.reduce((s: number, i: any) => s + (i.discount ?? 0), 0);
-  const total    = subtotal - discount;
+/** Finalize Sale (Cash Tender) modal — replaces both BillModal and InvoiceModal */
+const PAYMENT_METHODS = ["Cash", "Credit Card", "Check", "Bank Transfer", "Loyalty Point"] as const;
+type PaymentMethod = typeof PAYMENT_METHODS[number];
+
+interface PaymentEntry { method: PaymentMethod; amount: number }
+
+function FinalizeModal({
+  order,
+  items,
+  onClose,
+  onSubmit,
+}: {
+  order: any;
+  items: any[];
+  onClose: () => void;
+  onSubmit?: (payments: PaymentEntry[]) => void;
+}) {
+  const subtotal      = items.reduce((s: number, i: any) => s + (i.total ?? i.qty * i.price), 0);
+  const itemDiscount  = items.reduce((s: number, i: any) => s + (i.discount ?? 0), 0);
+  const [extraDiscount, setExtraDiscount] = useState(0);
+  const payable       = Math.max(0, subtotal - itemDiscount - extraDiscount);
+
+  const [activeMethod,    setActiveMethod]    = useState<PaymentMethod>("Cash");
+  const [givenAmount,     setGivenAmount]     = useState("");
+  const [changeAmount,    setChangeAmount]    = useState("");
+  const [amount,          setAmount]          = useState("");
+  const [payments,        setPayments]        = useState<PaymentEntry[]>([]);
+  const [showCartDetails, setShowCartDetails] = useState(false);
+  const [sendSMS,         setSendSMS]         = useState(false);
+  const [discountInput,   setDiscountInput]   = useState("");
+
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  const due       = Math.max(0, payable - totalPaid);
+
+  // When given amount changes for Cash, auto-calc change
+  useEffect(() => {
+    const given = parseFloat(givenAmount) || 0;
+    const amt   = parseFloat(amount)      || 0;
+    if (activeMethod === "Cash" && given > 0 && amt > 0) {
+      setChangeAmount(Math.max(0, given - amt).toFixed(2));
+    } else {
+      setChangeAmount("");
+    }
+  }, [givenAmount, amount, activeMethod]);
+
+  function addQuickAmount(val: number) {
+    setAmount(prev => {
+      const current = parseFloat(prev) || 0;
+      return (current + val).toFixed(2);
+    });
+  }
+
+  function handleAddPayment() {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return;
+    setPayments(prev => [...prev, { method: activeMethod, amount: amt }]);
+    setAmount(""); setGivenAmount(""); setChangeAmount("");
+  }
+
+  function handleClear() {
+    setGivenAmount(""); setChangeAmount(""); setAmount(""); setPayments([]);
+  }
+
+  function handleDiscount() {
+    const val = parseFloat(discountInput);
+    if (!isNaN(val) && val >= 0) setExtraDiscount(val);
+    setDiscountInput("");
+  }
+
+  function handleSubmit() {
+    if (onSubmit) onSubmit(payments);
+    else onClose();
+  }
+
+  const QUICK_AMOUNTS = [1, 2, 3, 5, 10, 50];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
-      <div className="rounded-xl border shadow-2xl w-80 overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: BORD }}>
-          <span className="font-bold text-sm" style={{ color: TEXT }}>Bill — {order.orderNumber}</span>
-          <button onClick={onClose} style={{ color: MUTED }}><X size={14} /></button>
+      <div className="rounded-xl border shadow-2xl overflow-hidden flex flex-col"
+        style={{ background: SURF, borderColor: BORD, width: 700, maxHeight: "90vh" }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORD }}>
+          <span className="font-bold text-base" style={{ color: TEXT }}>Finalize Sale</span>
+          <button onClick={onClose} style={{ color: MUTED }}><X size={16} /></button>
         </div>
-        <div className="px-4 py-2 text-xs" style={{ color: MUTED }}>
-          {order.type === "dine-in" ? "Dine In" : order.type === "takeaway" ? "Take Away" : "Delivery"}
-          {order.tableId ? ` · Table ${order.tableId}` : ""}
-          {" · "}{order.customerName}
-        </div>
-        <div className="px-2 pb-2">
-          <table className="w-full text-xs">
-            <thead><tr className="font-semibold border-b" style={{ color: DIM, borderColor: BORD }}>
-              <th className="text-left px-2 py-1.5">Item</th>
-              <th className="text-center px-2 py-1.5">Qty</th>
-              <th className="text-right px-2 py-1.5">Total</th>
-            </tr></thead>
-            <tbody>
-              {items.map((item: any, idx: number) => (
-                <tr key={idx} className="border-t" style={{ borderColor: BORD }}>
-                  <td className="px-2 py-1.5" style={{ color: TEXT }}>{item.name}</td>
-                  <td className="px-2 py-1.5 text-center" style={{ color: MUTED }}>{item.qty}</td>
-                  <td className="px-2 py-1.5 text-right font-mono" style={{ color: GOLD }}>
-                    {(item.total ?? item.qty * item.price).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-3 border-t space-y-1 text-xs" style={{ borderColor: BORD }}>
-          <div className="flex justify-between"><span style={{ color: MUTED }}>Sub Total</span><span style={{ color: TEXT }}>{subtotal.toFixed(2)}</span></div>
-          {discount > 0 && <div className="flex justify-between"><span style={{ color: MUTED }}>Discount</span><span style={{ color: TEXT }}>-{discount.toFixed(2)}</span></div>}
-          <div className="flex justify-between font-bold text-sm pt-1 border-t" style={{ borderColor: BORD }}>
-            <span style={{ color: TEXT }}>Amount Payable</span>
-            <span style={{ color: GOLD }}>{total.toFixed(2)}</span>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* Left — payment method sidebar */}
+          <div className="w-44 border-r flex flex-col" style={{ borderColor: BORD, background: SURF2 }}>
+            {PAYMENT_METHODS.map(m => (
+              <button key={m}
+                onClick={() => setActiveMethod(m)}
+                className="px-4 py-3 text-left text-sm border-b transition-colors"
+                style={{
+                  borderColor: BORD,
+                  background: activeMethod === m ? "#E5E7EB" : "transparent",
+                  color: activeMethod === m ? "#111827" : TEXT,
+                  fontWeight: activeMethod === m ? 600 : 400,
+                }}>
+                {m}
+              </button>
+            ))}
+            <div className="flex-1" />
+            <div className="p-3 border-t" style={{ borderColor: BORD }}>
+              <button className="w-full py-2 rounded text-xs font-semibold border"
+                style={{ borderColor: BORD, color: MUTED }}>
+                Change Currency
+              </button>
+            </div>
+          </div>
+
+          {/* Right — payment entry + summary */}
+          <div className="flex-1 flex flex-col p-4 gap-3 overflow-y-auto">
+
+            {/* Active method title */}
+            <div className="font-semibold text-sm" style={{ color: TEXT }}>{activeMethod}</div>
+
+            {/* Input row */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs" style={{ color: MUTED }}>Given Amount</label>
+                <input
+                  value={givenAmount}
+                  onChange={e => setGivenAmount(e.target.value)}
+                  placeholder="Given Amount"
+                  className="border rounded px-2 py-1.5 text-xs outline-none"
+                  style={{ borderColor: BORD, background: BG, color: TEXT }}
+                  type="number" min="0" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs" style={{ color: MUTED }}>Change Amount</label>
+                <input
+                  value={changeAmount}
+                  readOnly
+                  placeholder="Change Amount"
+                  className="border rounded px-2 py-1.5 text-xs outline-none"
+                  style={{ borderColor: BORD, background: "#F3F4F6", color: TEXT }} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs" style={{ color: MUTED }}>Amount</label>
+                <input
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="border rounded px-2 py-1.5 text-xs outline-none"
+                  style={{ borderColor: BORD, background: BG, color: TEXT }}
+                  type="number" min="0" />
+              </div>
+              <div className="flex flex-col justify-end">
+                <button onClick={handleAddPayment}
+                  className="py-1.5 rounded text-xs font-semibold border"
+                  style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Middle row: payments list + right controls */}
+            <div className="flex gap-3">
+
+              {/* Payments added list */}
+              <div className="flex-1 rounded border flex flex-col items-center justify-center min-h-[100px] text-xs"
+                style={{ borderColor: BORD, color: MUTED }}>
+                {payments.length === 0 ? (
+                  <span>Your added payments will be shown here</span>
+                ) : (
+                  <div className="w-full">
+                    {payments.map((p, i) => (
+                      <div key={i} className="flex justify-between items-center px-3 py-1.5 border-b text-xs"
+                        style={{ borderColor: BORD }}>
+                        <span style={{ color: TEXT }}>{p.method}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono" style={{ color: GOLD }}>{p.amount.toFixed(2)}</span>
+                          <button onClick={() => setPayments(prev => prev.filter((_, j) => j !== i))}
+                            style={{ color: MUTED }}><X size={11} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right controls */}
+              <div className="flex flex-col gap-2 w-36">
+
+                {/* Discount row */}
+                <div className="flex gap-1">
+                  <input
+                    value={discountInput}
+                    onChange={e => setDiscountInput(e.target.value)}
+                    placeholder="Discount"
+                    type="number" min="0"
+                    className="flex-1 border rounded px-2 py-1.5 text-xs outline-none w-0"
+                    style={{ borderColor: BORD, background: BG, color: TEXT }}
+                    onKeyDown={e => e.key === "Enter" && handleDiscount()} />
+                  <button onClick={handleDiscount}
+                    className="px-2 py-1.5 rounded border text-xs"
+                    style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                    Disc
+                  </button>
+                </div>
+
+                {/* Totals */}
+                <div className="rounded border p-2 space-y-1 text-xs" style={{ borderColor: BORD }}>
+                  <div className="flex justify-between">
+                    <span style={{ color: MUTED }}>Payable</span>
+                    <span className="font-bold font-mono" style={{ color: TEXT }}>LKR{payable.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: MUTED }}>Paid</span>
+                    <span className="font-bold font-mono" style={{ color: "#22C55E" }}>LKR{totalPaid.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-1" style={{ borderColor: BORD }}>
+                    <span style={{ color: MUTED }}>Due</span>
+                    <span className="font-bold font-mono" style={{ color: due > 0 ? "#EF4444" : "#22C55E" }}>
+                      LKR{due.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick amount buttons */}
+                <div className="grid grid-cols-2 gap-1">
+                  {QUICK_AMOUNTS.map(v => (
+                    <button key={v} onClick={() => addQuickAmount(v)}
+                      className="py-1.5 rounded border text-xs font-mono"
+                      style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Extra actions */}
+                <div className="flex items-center gap-1 text-xs" style={{ color: MUTED }}>
+                  <input type="checkbox" id="sms-chk" checked={sendSMS}
+                    onChange={e => setSendSMS(e.target.checked)} />
+                  <label htmlFor="sms-chk">Send SMS</label>
+                </div>
+
+                <button onClick={() => setShowCartDetails(v => !v)}
+                  className="py-1.5 rounded border text-xs"
+                  style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                  Cart Details
+                </button>
+
+                <button onClick={handleClear}
+                  className="py-1.5 rounded border text-xs"
+                  style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            {/* Cart details toggle */}
+            {showCartDetails && (
+              <div className="rounded border overflow-hidden" style={{ borderColor: BORD }}>
+                <div className="px-3 py-2 text-xs font-semibold border-b" style={{ borderColor: BORD, color: TEXT }}>
+                  Order {order.orderNumber} — Cart Details
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: BORD }}>
+                      <th className="text-left px-3 py-1.5" style={{ color: DIM }}>Item</th>
+                      <th className="text-center px-3 py-1.5" style={{ color: DIM }}>Qty</th>
+                      <th className="text-right px-3 py-1.5" style={{ color: DIM }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item: any, idx: number) => (
+                      <tr key={idx} className="border-t" style={{ borderColor: BORD }}>
+                        <td className="px-3 py-1.5" style={{ color: TEXT }}>{item.name}</td>
+                        <td className="px-3 py-1.5 text-center" style={{ color: MUTED }}>{item.qty}</td>
+                        <td className="px-3 py-1.5 text-right font-mono" style={{ color: GOLD }}>
+                          {(item.total ?? item.qty * item.price).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-3 py-2 border-t space-y-0.5 text-xs" style={{ borderColor: BORD }}>
+                  <div className="flex justify-between">
+                    <span style={{ color: MUTED }}>Sub Total</span>
+                    <span style={{ color: TEXT }}>{subtotal.toFixed(2)}</span>
+                  </div>
+                  {(itemDiscount + extraDiscount) > 0 && (
+                    <div className="flex justify-between">
+                      <span style={{ color: MUTED }}>Discount</span>
+                      <span style={{ color: TEXT }}>-{(itemDiscount + extraDiscount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold border-t pt-1" style={{ borderColor: BORD }}>
+                    <span style={{ color: TEXT }}>Payable</span>
+                    <span style={{ color: GOLD }}>{payable.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
-        <div className="px-4 py-3 border-t" style={{ borderColor: BORD }}>
-          <button onClick={onClose} className="w-full py-2 rounded text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-/** Invoice modal — post-payment receipt */
-function InvoiceModal({ order, items, onClose }: { order: any; items: any[]; onClose: () => void }) {
-  const subtotal = items.reduce((s: number, i: any) => s + (i.total ?? i.qty * i.price), 0);
-  const discount = items.reduce((s: number, i: any) => s + (i.discount ?? 0), 0);
-  const total    = subtotal - discount;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
-      <div className="rounded-xl border shadow-2xl w-80 overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: BORD }}>
-          <span className="font-bold text-sm" style={{ color: TEXT }}>Invoice — {order.orderNumber}</span>
-          <button onClick={onClose} style={{ color: MUTED }}><X size={14} /></button>
-        </div>
-        <div className="px-4 py-2 text-xs" style={{ color: MUTED }}>
-          Receipt · {new Date(order.createdAt || Date.now()).toLocaleString()}
-        </div>
-        <div className="px-4 py-2 text-xs space-y-0.5" style={{ color: MUTED }}>
-          <div>Customer: <span style={{ color: TEXT }}>{order.customerName}</span></div>
-          <div>Type: <span style={{ color: TEXT }}>{order.type}</span></div>
-        </div>
-        <div className="px-2 pb-2">
-          <table className="w-full text-xs">
-            <thead><tr className="font-semibold border-b" style={{ color: DIM, borderColor: BORD }}>
-              <th className="text-left px-2 py-1.5">Item</th>
-              <th className="text-center px-2 py-1.5">Qty</th>
-              <th className="text-right px-2 py-1.5">Total</th>
-            </tr></thead>
-            <tbody>
-              {items.map((item: any, idx: number) => (
-                <tr key={idx} className="border-t" style={{ borderColor: BORD }}>
-                  <td className="px-2 py-1.5" style={{ color: TEXT }}>{item.name}</td>
-                  <td className="px-2 py-1.5 text-center" style={{ color: MUTED }}>{item.qty}</td>
-                  <td className="px-2 py-1.5 text-right font-mono" style={{ color: GOLD }}>
-                    {(item.total ?? item.qty * item.price).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-3 border-t space-y-1 text-xs" style={{ borderColor: BORD }}>
-          <div className="flex justify-between"><span style={{ color: MUTED }}>Sub Total</span><span style={{ color: TEXT }}>{subtotal.toFixed(2)}</span></div>
-          {discount > 0 && <div className="flex justify-between"><span style={{ color: MUTED }}>Discount</span><span style={{ color: TEXT }}>-{discount.toFixed(2)}</span></div>}
-          <div className="flex justify-between font-bold text-sm pt-1 border-t" style={{ borderColor: BORD }}>
-            <span style={{ color: TEXT }}>Paid</span>
-            <span style={{ color: "#22C55E" }}>{total.toFixed(2)}</span>
-          </div>
-        </div>
-        <div className="flex gap-2 px-4 py-3 border-t" style={{ borderColor: BORD }}>
-          <button className="flex-1 py-2 rounded border text-xs" style={{ borderColor: BORD, color: MUTED }}
-            onClick={() => window.print()}>
-            <Printer size={11} className="inline mr-1" /> Print
+        {/* Footer */}
+        <div className="grid grid-cols-2 border-t" style={{ borderColor: BORD }}>
+          <button onClick={onClose}
+            className="py-3 text-sm font-semibold"
+            style={{ background: "#EF4444", color: "#fff" }}>
+            ✕ Cancel
           </button>
-          <button onClick={onClose} className="flex-1 py-2 rounded text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>Close</button>
+          <button onClick={handleSubmit}
+            className="py-3 text-sm font-semibold"
+            style={{ background: "#22C55E", color: "#fff" }}>
+            ⊞ Submit
+          </button>
         </div>
+
       </div>
     </div>
   );
@@ -585,6 +791,9 @@ export default function POSPage() {
   const [detailsOrderId,     setDetailsOrderId]     = useState<number | null>(null);
   const [billOrderId,        setBillOrderId]        = useState<number | null>(null);
   const [invoiceOrderId,     setInvoiceOrderId]     = useState<number | null>(null);
+  // finalizeOrderId = open FinalizeModal; finalizeIsQuick = was a quick-invoice (mark completed on submit)
+  const [finalizeOrderId,    setFinalizeOrderId]    = useState<number | null>(null);
+  const [finalizeIsQuick,    setFinalizeIsQuick]    = useState(false);
   const [cancelConfirmId,    setCancelConfirmId]    = useState<number | null>(null);
   const [modifyOrderId,      setModifyOrderId]      = useState<number | null>(null);
 
@@ -618,13 +827,13 @@ export default function POSPage() {
 
   // Fetch details for modals when an order is selected
   const { data: orderDetailData } = useQuery({
-    queryKey: ["order-detail", detailsOrderId ?? billOrderId ?? invoiceOrderId],
+    queryKey: ["order-detail", detailsOrderId ?? billOrderId ?? invoiceOrderId ?? finalizeOrderId],
     queryFn: async () => {
-      const id = detailsOrderId ?? billOrderId ?? invoiceOrderId;
+      const id = detailsOrderId ?? billOrderId ?? invoiceOrderId ?? finalizeOrderId;
       if (!id) return null;
       return (await api.orders[":id"].$get({ param: { id: String(id) } })).json();
     },
-    enabled: !!(detailsOrderId || billOrderId || invoiceOrderId),
+    enabled: !!(detailsOrderId || billOrderId || invoiceOrderId || finalizeOrderId),
   });
 
   // ── Mutations
@@ -685,7 +894,9 @@ export default function POSPage() {
       qc.invalidateQueries({ queryKey: ["orders"] });
       const newOrderId = res?.order?.id ?? null;
       if (status === "quick-invoice" && newOrderId) {
-        setInvoiceOrderId(newOrderId);
+        // Open Finalize Sale modal immediately; mark as quick so Submit → completed
+        setFinalizeIsQuick(true);
+        setFinalizeOrderId(newOrderId);
       }
       resetOrder();
       showToast(status === "draft" ? "Order saved as draft" : "Order placed! KOT sent to kitchen.");
@@ -788,7 +999,10 @@ export default function POSPage() {
     return true;
   });
   const tables      = (tablesData as any)?.tables || [];
-  const filteredOrders = orders.filter((o: any) =>
+  const runningOrders = orders.filter((o: any) =>
+    o.status !== "completed" && o.status !== "cancelled"
+  );
+  const filteredOrders = runningOrders.filter((o: any) =>
     !orderSearch ||
     o.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) ||
     o.customerName?.toLowerCase().includes(orderSearch.toLowerCase())
@@ -919,9 +1133,9 @@ export default function POSPage() {
               onClick={() => selectedOrderId && reprintKOT.mutate(selectedOrderId)} />
             <div className="grid grid-cols-2 gap-1">
               <Btn icon={Receipt} label="Invoice"
-                onClick={() => selectedOrderId && setInvoiceOrderId(selectedOrderId)} />
+                onClick={() => { if (selectedOrderId) { setFinalizeIsQuick(false); setFinalizeOrderId(selectedOrderId); } }} />
               <Btn icon={Printer} label="Bill"
-                onClick={() => selectedOrderId && setBillOrderId(selectedOrderId)} />
+                onClick={() => { if (selectedOrderId) { setFinalizeIsQuick(false); setFinalizeOrderId(selectedOrderId); } }} />
             </div>
             <Btn icon={Ban} label="Cancel Order" danger
               onClick={() => selectedOrderId && setCancelConfirmId(selectedOrderId)} />
@@ -1216,17 +1430,23 @@ export default function POSPage() {
         <OrderDetailsModal
           order={modalOrder} items={modalItems}
           onClose={() => setDetailsOrderId(null)}
-          onCreateInvoice={() => { setDetailsOrderId(null); setInvoiceOrderId(detailsOrderId); }} />
+          onCreateInvoice={() => { setDetailsOrderId(null); setFinalizeIsQuick(false); setFinalizeOrderId(detailsOrderId); }} />
       )}
 
-      {/* Bill modal */}
-      {billOrderId && modalOrder.id && (
-        <BillModal order={modalOrder} items={modalItems} onClose={() => setBillOrderId(null)} />
-      )}
-
-      {/* Invoice modal */}
-      {invoiceOrderId && modalOrder.id && (
-        <InvoiceModal order={modalOrder} items={modalItems} onClose={() => setInvoiceOrderId(null)} />
+      {/* Finalize Sale modal — for Invoice (running order) and Quick Invoice */}
+      {finalizeOrderId && modalOrder.id && (
+        <FinalizeModal
+          order={modalOrder}
+          items={modalItems}
+          onClose={() => { setFinalizeOrderId(null); setFinalizeIsQuick(false); }}
+          onSubmit={(_payments) => {
+            // Mark order as completed
+            updateOrderStatus.mutate({ id: finalizeOrderId, status: "completed" });
+            setFinalizeOrderId(null);
+            setFinalizeIsQuick(false);
+            showToast("Payment recorded. Sale finalized!");
+          }}
+        />
       )}
 
       {/* Cancel confirmation */}
