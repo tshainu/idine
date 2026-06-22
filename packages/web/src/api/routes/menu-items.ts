@@ -15,7 +15,19 @@ export const menuItems = new Hono()
       .from(schema.menuItems)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(asc(schema.menuItems.sortOrder));
-    return c.json({ menuItems: items }, 200);
+
+    // Attach variations to each item
+    const allVariations = items.length > 0
+      ? await db.select().from(schema.menuItemVariations)
+          .where(and(...items.map(i => eq(schema.menuItemVariations.menuItemId, i.id))))
+      : [];
+
+    const itemsWithVariations = items.map(item => ({
+      ...item,
+      variations: allVariations.filter(v => v.menuItemId === item.id),
+    }));
+
+    return c.json({ menuItems: itemsWithVariations }, 200);
   })
   .post("/", async (c) => {
     const body = await c.req.json();

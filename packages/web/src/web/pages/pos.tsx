@@ -564,6 +564,7 @@ export default function POSPage() {
   const [selectedOrderId,    setSelectedOrderId]    = useState<number | null>(null);
   const [orderType,          setOrderType]          = useState<OrderType>("dine-in");
   const [selectedWaiterId,   setSelectedWaiterId]   = useState<number | null>(null);
+  const [selectedWaiterName, setSelectedWaiterName] = useState<string | null>(null);
   const [customerId,         setCustomerId]         = useState<number | null>(null);
   const [customerName,       setCustomerName]       = useState("Walk-in Customer");
   const [selectedTableId,    setSelectedTableId]    = useState<number | null>(null);
@@ -576,6 +577,9 @@ export default function POSPage() {
 
   // Modifier picker state
   const [modPickerItemId,    setModPickerItemId]    = useState<number | null>(null);
+
+  // Variation picker state
+  const [varPickerItem,      setVarPickerItem]      = useState<any | null>(null);
 
   // Modal states
   const [detailsOrderId,     setDetailsOrderId]     = useState<number | null>(null);
@@ -630,7 +634,6 @@ export default function POSPage() {
       const now = new Date();
       const mm  = String(now.getMonth() + 1).padStart(2, "0");
       const dd  = String(now.getDate()).padStart(2, "0");
-      const selectedWaiterName = waiters.find((w: any) => w.id === selectedWaiterId)?.name ?? null;
       const ww  = waiterShortId(selectedWaiterName);
       // get seq from existing orders today
       const orders = (ordersData as any)?.orders || [];
@@ -715,6 +718,7 @@ export default function POSPage() {
     const { order, items } = res;
     setOrderType(order.type as OrderType);
     setSelectedWaiterId(order.waiterId ?? null);
+    setSelectedWaiterName(order.waiterName ?? null);
     setCustomerId(order.customerId ?? null);
     setCustomerName(order.customerName || "Walk-in Customer");
     setSelectedTableId(order.tableId ?? null);
@@ -730,15 +734,26 @@ export default function POSPage() {
   function resetOrder() {
     setCartItems([]); setOrderType("dine-in"); setSelectedTableId(null);
     setCustomerName("Walk-in Customer"); setCustomerId(null);
-    setSelectedOrderId(null); setSelectedWaiterId(null); setModifyOrderId(null);
+    setSelectedOrderId(null); setSelectedWaiterId(null); setSelectedWaiterName(null); setModifyOrderId(null);
   }
   function showToast(msg: string) { setToast(msg); }
 
-  function addToCart(item: any) {
+  function addToCart(item: any, variation?: any) {
+    if (!variation && item.variations && item.variations.length > 0) {
+      // Has variations — open picker modal
+      setVarPickerItem(item);
+      return;
+    }
+    // Determine price based on order type
+    const priceByType = variation
+      ? (orderType === "dine-in" ? variation.priceDineIn : orderType === "takeaway" ? variation.priceTakeaway : variation.priceDelivery)
+      : (orderType === "dine-in" ? (item.priceDineIn || item.price) : orderType === "takeaway" ? (item.priceTakeaway || item.price) : (item.priceDelivery || item.price));
+    const cartKey = variation ? `${item.id}-${variation.id}` : item.id;
+    const name = variation ? `${item.name} (${variation.name})` : item.name;
     setCartItems(prev => {
-      const ex = prev.find(i => i.menuItemId === item.id);
-      if (ex) return prev.map(i => i.menuItemId === item.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { menuItemId: item.id, name: item.name, price: item.price, qty: 1, discount: 0, printerId: item.printerId ?? null, modifiers: [] }];
+      const ex = prev.find(i => i.menuItemId === cartKey);
+      if (ex) return prev.map(i => i.menuItemId === cartKey ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { menuItemId: cartKey, name, price: priceByType, qty: 1, discount: 0, printerId: item.printerId ?? null, modifiers: [] }];
     });
   }
   function changeQty(id: number, delta: number) {
@@ -931,7 +946,11 @@ export default function POSPage() {
             <select className="flex-1 px-2 py-1.5 rounded border text-xs focus:outline-none"
               style={{ background: SURF2, color: TEXT, borderColor: BORD }}
               value={selectedWaiterId || ""}
-              onChange={e => setSelectedWaiterId(e.target.value ? parseInt(e.target.value) : null)}>
+              onChange={e => {
+                const id = e.target.value ? parseInt(e.target.value) : null;
+                setSelectedWaiterId(id);
+                setSelectedWaiterName(waiters.find((w: any) => w.id === id)?.name ?? null);
+              }}>
               <option value="">Waiter</option>
               {waiters.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
@@ -1140,6 +1159,35 @@ export default function POSPage() {
       </div>
 
       {/* ── MODALS ── */}
+
+      {/* Variation picker */}
+      {varPickerItem && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
+          <div className="w-[400px] rounded-2xl border" style={{ background: SURF, borderColor: BORD }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: BORD }}>
+              <div>
+                <div className="font-bold text-sm" style={{ color: TEXT }}>{varPickerItem.name}</div>
+                <div className="text-xs mt-0.5" style={{ color: DIM }}>Select a variation</div>
+              </div>
+              <button onClick={() => setVarPickerItem(null)} style={{ color: DIM }}><X size={16} /></button>
+            </div>
+            <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+              {varPickerItem.variations.map((v: any) => {
+                const price = orderType === "dine-in" ? v.priceDineIn : orderType === "takeaway" ? v.priceTakeaway : v.priceDelivery;
+                return (
+                  <button key={v.id}
+                    onClick={() => { addToCart(varPickerItem, v); setVarPickerItem(null); }}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all hover:brightness-110"
+                    style={{ background: BG, borderColor: BORD }}>
+                    <span className="text-sm font-medium" style={{ color: TEXT }}>{v.name}</span>
+                    <span className="text-sm font-bold font-mono" style={{ color: GOLD }}>{price.toFixed(2)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modifier picker */}
       {modPickerItemId !== null && (() => {
