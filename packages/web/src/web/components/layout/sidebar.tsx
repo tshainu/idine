@@ -82,10 +82,8 @@ export function Sidebar() {
     <div className="w-56 flex flex-col h-full border-r shrink-0" style={{ background: SURF, borderColor: BORD }}>
       {/* Logo */}
       <div className="p-4 border-b shrink-0" style={{ borderColor: BORD }}>
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: GOLD }}>
-            <UtensilsCrossed size={16} color="#1A0A2E" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img src="/logo-icon.png" alt="iDine" className="w-9 h-9 rounded-xl shrink-0 object-contain" />
           <div>
             <div className="font-bold text-sm" style={{ color: GOLD }}>iDine</div>
             <div className="text-[10px]" style={{ color: MUTED }}>Restaurant POS</div>

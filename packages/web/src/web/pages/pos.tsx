@@ -1052,9 +1052,10 @@ export default function POSPage() {
             </button>
           ))}
         </div>
-        {/* Title */}
-        <div className="ml-3 px-3 py-1 rounded text-sm font-bold shrink-0" style={{ color: GOLD }}>
-          Delizz Restaurant
+        {/* Logo */}
+        <div className="ml-3 flex items-center gap-2 shrink-0">
+          <img src="/logo-icon.png" alt="iDine" style={{ width: 26, height: 26, borderRadius: 6, objectFit: "contain" }} />
+          <span className="text-sm font-bold" style={{ color: GOLD }}>iDine POS</span>
         </div>
         {/* Toast inline next to title */}
         {toast && <Toast msg={toast} onDone={() => setToast(null)} />}

@@ -53,15 +53,8 @@ export default function Login() {
     }}>
       {/* Logo / Brand */}
       <div style={{ textAlign: "center" }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: 20,
-          background: "linear-gradient(135deg, var(--color-gold), #C97800)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          margin: "0 auto 16px",
-          boxShadow: "0 8px 32px var(--color-gold)44",
-        }}>
-          <span style={{ fontSize: 28 }}>🍽️</span>
-        </div>
+        <img src="/logo-icon.png" alt="iDine"
+          style={{ width: 80, height: 80, borderRadius: 20, margin: "0 auto 16px", display: "block", objectFit: "contain" }} />
         <h1 style={{ color: "var(--color-text)", fontSize: 28, fontWeight: 700, letterSpacing: -0.5 }}>iDine POS</h1>
         <p style={{ color: "var(--color-text-muted)", fontSize: 14, marginTop: 4 }}>Enter your PIN to continue</p>
       </div>
