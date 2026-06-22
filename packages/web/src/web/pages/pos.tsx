@@ -630,6 +630,7 @@ export default function POSPage() {
   // ── Mutations
   const placeOrder = useMutation({
     mutationFn: async (status: string) => {
+      const apiStatus = status === "quick-invoice" ? "confirmed" : status;
       const subtotal = cartItems.reduce((s, i) => s + (i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty), 0);
       const now = new Date();
       const mm  = String(now.getMonth() + 1).padStart(2, "0");
@@ -644,7 +645,7 @@ export default function POSPage() {
 
       const order = await (await api.orders.$post({
         json: {
-          branchId, type: orderType, status, tableId: selectedTableId,
+          branchId, type: orderType, status: apiStatus, tableId: selectedTableId,
           waiterId: selectedWaiterId, customerId, customerName,
           subtotal, total: subtotal, orderNumber,
         },
@@ -662,7 +663,7 @@ export default function POSPage() {
         },
       })).json();
 
-      if (status !== "draft") {
+      if (apiStatus !== "draft") {
         const printerGroups = cartItems.reduce((acc, item) => {
           if (item.printerId) { (acc[item.printerId] ||= []).push(item); }
           return acc;
@@ -680,10 +681,18 @@ export default function POSPage() {
       }
       return order;
     },
-    onSuccess: (_, status) => {
+    onSuccess: (res: any, status) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
+      const newOrderId = res?.order?.id ?? null;
+      if (status === "quick-invoice" && newOrderId) {
+        setInvoiceOrderId(newOrderId);
+      }
       resetOrder();
       showToast(status === "draft" ? "Order saved as draft" : "Order placed! KOT sent to kitchen.");
+    },
+    onError: (err: any) => {
+      console.error("[placeOrder] failed:", err);
+      showToast("Failed to place order. Please try again.");
     },
   });
 
@@ -1061,10 +1070,10 @@ export default function POSPage() {
               style={{ background: "var(--color-purple)" }}>
               <FileText size={14} /> Draft
             </button>
-            <button disabled={cartItems.length === 0}
+            <button onClick={() => placeOrder.mutate("quick-invoice")} disabled={cartItems.length === 0 || placeOrder.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
               style={{ background: "#38BDF8" }}>
-              <Receipt size={14} /> Quick Invoice
+              {placeOrder.isPending ? <Spinner size={14} /> : <><Receipt size={14} /> Quick Invoice</>}
             </button>
             <button onClick={() => placeOrder.mutate("confirmed")} disabled={cartItems.length === 0 || placeOrder.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
