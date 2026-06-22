@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, Tag, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, Tag, X, Upload, ImageIcon } from "lucide-react";
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -117,7 +117,7 @@ function VariationModal({
           {/* Prices */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FLabel required>Sale Price (Dine In)</FLabel>
+              <FLabel required>Sale Price (Dine In) *</FLabel>
               <input type="number" value={vform.priceDineIn} onChange={vset("priceDineIn")} placeholder="0.00"
                 className={inputCls} style={inputStyle()} />
             </div>
@@ -164,6 +164,21 @@ export default function ProductsPage() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [localVariations, setLocalVariations] = useState<any[]>([]); // for new unsaved items
   const [showVarModal, setShowVarModal] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleImageUpload(file: File) {
+    setImgUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json() as any;
+      if (json.url) setForm(p => ({ ...p, imageUrl: json.url }));
+    } finally {
+      setImgUploading(false);
+    }
+  }
 
   const { data: menuData, isLoading } = useQuery({
     queryKey: ["products-menu", branchId],
@@ -432,18 +447,21 @@ export default function ProductsPage() {
               {/* Row 2: Prices */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <FLabel required>Sale Price (Dine In)</FLabel>
-                  <input type="number" value={form.priceDineIn ?? ""} onChange={e => setForm(p => ({ ...p, priceDineIn: e.target.value, priceTakeaway: e.target.value, priceDelivery: e.target.value }))}
+                  <FLabel required>Sale Price (Dine In) *</FLabel>
+                  <input type="number" value={form.priceDineIn ?? ""}
+                    onChange={e => { const v = e.target.value; setForm(p => ({ ...p, priceDineIn: v, priceTakeaway: v, priceDelivery: v })); }}
                     placeholder="0.00" className={inputCls} style={inputStyle()} />
                 </div>
                 <div>
-                  <FLabel required>Sale Price (Take Away)</FLabel>
-                  <input type="number" value={form.priceTakeaway ?? ""} onChange={e => setForm(p => ({ ...p, priceTakeaway: e.target.value }))}
+                  <FLabel>Sale Price (Take Away)</FLabel>
+                  <input type="number" value={form.priceTakeaway ?? ""}
+                    onChange={e => setForm(p => ({ ...p, priceTakeaway: e.target.value }))}
                     placeholder="0.00" className={inputCls} style={inputStyle()} />
                 </div>
                 <div>
-                  <FLabel required>Sale Price (Delivery)</FLabel>
-                  <input type="number" value={form.priceDelivery ?? ""} onChange={e => setForm(p => ({ ...p, priceDelivery: e.target.value }))}
+                  <FLabel>Sale Price (Delivery)</FLabel>
+                  <input type="number" value={form.priceDelivery ?? ""}
+                    onChange={e => setForm(p => ({ ...p, priceDelivery: e.target.value }))}
                     placeholder="0.00" className={inputCls} style={inputStyle()} />
                 </div>
               </div>
@@ -456,9 +474,29 @@ export default function ProductsPage() {
                     placeholder="Description" className={inputCls} style={inputStyle()} />
                 </div>
                 <div>
-                  <FLabel>Image URL</FLabel>
-                  <input value={form.imageUrl ?? ""} onChange={e => setForm(p => ({ ...p, imageUrl: e.target.value }))}
-                    placeholder="https://..." className={inputCls} style={inputStyle()} />
+                  <FLabel>Item Image</FLabel>
+                  <input ref={imgInputRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = ""; }} />
+                  <div className="flex items-center gap-2">
+                    {form.imageUrl ? (
+                      <div className="relative w-12 h-12 rounded-lg overflow-hidden border shrink-0" style={{ borderColor: BORD }}>
+                        <img src={form.imageUrl} alt="" className="w-full h-full object-cover" />
+                        <button onClick={() => setForm(p => ({ ...p, imageUrl: "" }))}
+                          className="absolute top-0 right-0 bg-black/60 rounded-bl p-0.5" style={{ color: "#fff" }}>
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg border flex items-center justify-center shrink-0" style={{ borderColor: BORD, background: BG }}>
+                        <ImageIcon size={18} style={{ color: DIM }} />
+                      </div>
+                    )}
+                    <button type="button" disabled={imgUploading} onClick={() => imgInputRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-xs font-medium"
+                      style={{ borderColor: BORD, color: imgUploading ? DIM : TEXT, background: BG }}>
+                      <Upload size={12} />{imgUploading ? "Uploading..." : "Upload Image"}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <FLabel>Print Station (KOT)</FLabel>
