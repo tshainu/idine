@@ -48,8 +48,15 @@ function VariationModal({
   });
 
   function vset(key: string) {
-    return (e: React.ChangeEvent<HTMLInputElement>) =>
-      setVform(f => ({ ...f, [key]: e.target.value }));
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setVform(f => {
+        if (key === "priceDineIn") {
+          return { ...f, priceDineIn: val, priceTakeaway: val, priceDelivery: val };
+        }
+        return { ...f, [key]: val };
+      });
+    };
   }
 
   const qc = useQueryClient();
@@ -426,7 +433,7 @@ export default function ProductsPage() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <FLabel required>Sale Price (Dine In)</FLabel>
-                  <input type="number" value={form.priceDineIn ?? ""} onChange={e => setForm(p => ({ ...p, priceDineIn: e.target.value }))}
+                  <input type="number" value={form.priceDineIn ?? ""} onChange={e => setForm(p => ({ ...p, priceDineIn: e.target.value, priceTakeaway: e.target.value, priceDelivery: e.target.value }))}
                     placeholder="0.00" className={inputCls} style={inputStyle()} />
                 </div>
                 <div>
