@@ -35,11 +35,22 @@ type CartItem  = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function genOrderNumber(waiterId: number | null, seq: number): string {
+function waiterShortId(name: string | null | undefined): string {
+  if (!name) return "WW";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    // First letter of first name + first letter of last name
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  // Single name: first two letters
+  return name.slice(0, 2).toUpperCase();
+}
+
+function genOrderNumber(waiterName: string | null | undefined, seq: number): string {
   const now  = new Date();
   const mm   = String(now.getMonth() + 1).padStart(2, "0");
   const dd   = String(now.getDate()).padStart(2, "0");
-  const ww   = waiterId ? String(waiterId).padStart(2, "0").slice(-2).toUpperCase() : "WW";
+  const ww   = waiterShortId(waiterName);
   const s    = String(seq).padStart(3, "0");
   return `${mm}${dd}${ww}-${s}`;
 }
@@ -618,7 +629,8 @@ export default function POSPage() {
       const now = new Date();
       const mm  = String(now.getMonth() + 1).padStart(2, "0");
       const dd  = String(now.getDate()).padStart(2, "0");
-      const ww  = selectedWaiterId ? String(selectedWaiterId).padStart(2, "0").slice(-2).toUpperCase() : "WW";
+      const selectedWaiterName = waiters.find((w: any) => w.id === selectedWaiterId)?.name ?? null;
+      const ww  = waiterShortId(selectedWaiterName);
       // get seq from existing orders today
       const orders = (ordersData as any)?.orders || [];
       const prefix = `${mm}${dd}${ww}-`;
