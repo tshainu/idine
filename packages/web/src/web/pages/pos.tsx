@@ -610,6 +610,7 @@ export default function POSPage() {
     queryKey: ["users", branchId],
     queryFn: async () => (await api.users.$get({ query: { branchId: String(branchId) } })).json(),
   });
+  const waiters = ((usersData as any)?.users || []).filter((u: any) => u.role === "waiter" || u.role === "manager");
 
   // Fetch details for modals when an order is selected
   const { data: orderDetailData } = useQuery({
@@ -763,7 +764,6 @@ export default function POSPage() {
     return true;
   });
   const tables      = (tablesData as any)?.tables || [];
-  const waiters     = ((usersData as any)?.users || []).filter((u: any) => u.role === "waiter" || u.role === "manager");
   const filteredOrders = orders.filter((o: any) =>
     !orderSearch ||
     o.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) ||
