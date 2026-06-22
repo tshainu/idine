@@ -25,7 +25,7 @@ const DIM   = "var(--color-text-dim)";
 type OrderType = "dine-in" | "takeaway" | "delivery";
 type Modifier  = { id: number; name: string; groupName: string; price: number };
 type CartItem  = {
-  menuItemId: number;
+  menuItemId: number | string;  // string for "itemId-varId" variations
   name: string;
   price: number;
   qty: number;

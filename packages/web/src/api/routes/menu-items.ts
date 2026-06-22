@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray } from "drizzle-orm";
 
 export const menuItems = new Hono()
   .get("/", async (c) => {
@@ -16,10 +16,11 @@ export const menuItems = new Hono()
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(asc(schema.menuItems.sortOrder));
 
-    // Attach variations to each item
-    const allVariations = items.length > 0
+    // Attach variations to each item using inArray (OR across all item ids)
+    const itemIds = items.map(i => i.id);
+    const allVariations = itemIds.length > 0
       ? await db.select().from(schema.menuItemVariations)
-          .where(and(...items.map(i => eq(schema.menuItemVariations.menuItemId, i.id))))
+          .where(inArray(schema.menuItemVariations.menuItemId, itemIds))
       : [];
 
     const itemsWithVariations = items.map(item => ({

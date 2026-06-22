@@ -36,12 +36,16 @@ export const orders = new Hono()
   })
   .post("/", async (c) => {
     const body = await c.req.json();
-    // Create order with temp number first
+    // Use client-provided orderNumber if present, else generate from ID
+    if (body.orderNumber && body.orderNumber !== "TEMP") {
+      const [order] = await db.insert(schema.orders).values(body).returning();
+      return c.json({ order }, 201);
+    }
+    // Fallback: insert with TEMP then update
     const [order] = await db.insert(schema.orders).values({
       ...body,
       orderNumber: "TEMP",
     }).returning();
-    // Update with proper order number based on ID
     const orderNumber = generateOrderNumber(order.id);
     const [updated] = await db.update(schema.orders)
       .set({ orderNumber })
