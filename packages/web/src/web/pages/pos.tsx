@@ -1575,10 +1575,15 @@ export default function POSPage() {
                     }}>
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs font-mono" style={{ color: GOLD }}>{order.orderNumber}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-white"
-                        style={{ background: order.type === "dine-in" ? "#22C55E" : order.type === "takeaway" ? "#F5A623" : "#38BDF8" }}>
-                        {order.type === "dine-in" ? "Dine" : order.type === "takeaway" ? "Take" : "Deliv"}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {order.source === "qr" && (
+                          <span className="text-[9px] px-1 py-0.5 rounded font-bold text-white" style={{ background: "#8B5CF6" }}>QR</span>
+                        )}
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-white"
+                          style={{ background: order.type === "dine-in" ? "#22C55E" : order.type === "takeaway" ? "#F5A623" : "#38BDF8" }}>
+                          {order.type === "dine-in" ? "Dine" : order.type === "takeaway" ? "Take" : "Deliv"}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-xs mt-0.5 truncate" style={{ color: MUTED }}>{order.customerName}</div>
                     {order.tableId && <div className="text-[10px] mt-0.5" style={{ color: DIM }}>Table {order.tableId}</div>}

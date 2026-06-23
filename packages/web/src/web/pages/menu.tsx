@@ -274,53 +274,54 @@ export default function MenuPage() {
             <p className="text-sm" style={{ color: DIM }}>No items found</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             {filteredItems.map((item: any) => {
               const qty = getQty(item.id);
               const price = Number(item.price);
               return (
-                <div key={item.id} className="flex items-center gap-3 rounded-2xl border p-3"
+                <div key={item.id} className="rounded-2xl border flex flex-col overflow-hidden"
                   style={{ background: SURF, borderColor: BORD }}>
-                  {/* Image placeholder */}
-                  <div className="w-16 h-16 rounded-xl shrink-0 flex items-center justify-center"
-                    style={{ background: GOLD + "15" }}>
+                  {/* Image */}
+                  <div className="w-full aspect-[4/3] flex items-center justify-center"
+                    style={{ background: GOLD + "12" }}>
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
-                      <UtensilsCrossed size={22} style={{ color: GOLD + "80" }} />
+                      <UtensilsCrossed size={32} style={{ color: GOLD + "60" }} />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate" style={{ color: TEXT }}>{item.name}</div>
+                  {/* Info */}
+                  <div className="p-3 flex flex-col flex-1">
+                    <div className="text-xs font-semibold leading-snug mb-1" style={{ color: TEXT }}>{item.name}</div>
                     {item.description && (
-                      <div className="text-[11px] mt-0.5 line-clamp-1" style={{ color: DIM }}>{item.description}</div>
+                      <div className="text-[10px] line-clamp-1 mb-1" style={{ color: DIM }}>{item.description}</div>
                     )}
-                    <div className="text-sm font-bold mt-1" style={{ color: GOLD }}>
+                    <div className="text-sm font-bold mt-auto mb-2" style={{ color: GOLD }}>
                       {price > 0 ? `LKR ${price.toLocaleString()}` : "Market price"}
                     </div>
-                  </div>
-                  {/* Add / qty control */}
-                  {qty === 0 ? (
-                    <button onClick={() => addToCart(item)}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: GOLD, color: "#1A0A2E" }}>
-                      <Plus size={18} />
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => removeFromCart(item.id)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                        style={{ borderColor: BORD, color: MUTED }}>
-                        <Minus size={14} />
-                      </button>
-                      <span className="text-sm font-bold w-4 text-center" style={{ color: TEXT }}>{qty}</span>
+                    {/* Add / qty */}
+                    {qty === 0 ? (
                       <button onClick={() => addToCart(item)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        className="w-full py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
                         style={{ background: GOLD, color: "#1A0A2E" }}>
-                        <Plus size={14} />
+                        <Plus size={13} /> Add
                       </button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <button onClick={() => removeFromCart(item.id)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                          style={{ borderColor: BORD, color: MUTED }}>
+                          <Minus size={13} />
+                        </button>
+                        <span className="text-sm font-bold" style={{ color: TEXT }}>{qty}</span>
+                        <button onClick={() => addToCart(item)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ background: GOLD, color: "#1A0A2E" }}>
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

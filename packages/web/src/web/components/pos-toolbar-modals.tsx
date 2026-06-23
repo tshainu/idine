@@ -621,6 +621,22 @@ export function QROrdersModal({ branchId, onClose }: { branchId: number; onClose
     return tables.find(t => t.id === tableId)?.name || `#${tableId}`;
   }
 
+  async function assignWaiter(order: any) {
+    const waiterId = assignMap[order.id] ?? null;
+    if (!waiterId) return;
+    setProcessing(prev => new Set(prev).add(order.id));
+    try {
+      await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ waiterId }),
+      });
+      qc.invalidateQueries({ queryKey: ["qr-orders-modal", branchId] });
+    } finally {
+      setProcessing(prev => { const s = new Set(prev); s.delete(order.id); return s; });
+    }
+  }
+
   async function acceptOrder(order: any) {
     const waiterId = assignMap[order.id] ?? null;
     setProcessing(prev => new Set(prev).add(order.id));
@@ -766,26 +782,33 @@ export function QROrdersModal({ branchId, onClose }: { branchId: number; onClose
                   </div>
 
                   {/* Assign waiter + actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <select
                       value={assignMap[order.id] ?? ""}
                       onChange={e => setAssignMap(prev => ({ ...prev, [order.id]: e.target.value ? parseInt(e.target.value) : null }))}
-                      className="flex-1 px-3 py-2 text-xs rounded-lg border outline-none"
+                      className="w-36 px-2 py-1.5 text-xs rounded-lg border outline-none shrink-0"
                       style={{ background: BG, borderColor: BORD, color: TEXT }}>
-                      <option value="">— Assign Waiter (optional) —</option>
+                      <option value="">Waiter…</option>
                       {waiters.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
                     <button
+                      onClick={() => assignWaiter(order)}
+                      disabled={processing.has(order.id) || !assignMap[order.id]}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-40 shrink-0"
+                      style={{ borderColor: BORD, color: TEXT, background: "transparent" }}>
+                      Assign
+                    </button>
+                    <button
                       onClick={() => rejectOrder(order)}
                       disabled={processing.has(order.id)}
-                      className="px-3 py-2 rounded-lg text-xs font-semibold border disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-50 shrink-0"
                       style={{ borderColor: "#EF4444", color: "#EF4444", background: "#EF444411" }}>
                       Reject
                     </button>
                     <button
                       onClick={() => acceptOrder(order)}
                       disabled={processing.has(order.id)}
-                      className="px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1.5"
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1.5 shrink-0"
                       style={{ background: GOLD, color: "#1A0A2E" }}>
                       {processing.has(order.id) ? <Spinner size={12} /> : <><Check size={13} /> Accept + Print KOT</>}
                     </button>
