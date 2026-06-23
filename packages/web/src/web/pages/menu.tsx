@@ -282,7 +282,7 @@ export default function MenuPage() {
                 <div key={item.id} className="rounded-2xl border flex flex-col overflow-hidden"
                   style={{ background: SURF, borderColor: BORD }}>
                   {/* Image */}
-                  <div className="w-full aspect-[4/3] flex items-center justify-center"
+                  <div className="w-full aspect-square flex items-center justify-center overflow-hidden"
                     style={{ background: GOLD + "12" }}>
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />

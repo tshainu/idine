@@ -786,18 +786,11 @@ export function QROrdersModal({ branchId, onClose }: { branchId: number; onClose
                     <select
                       value={assignMap[order.id] ?? ""}
                       onChange={e => setAssignMap(prev => ({ ...prev, [order.id]: e.target.value ? parseInt(e.target.value) : null }))}
-                      className="w-36 px-2 py-1.5 text-xs rounded-lg border outline-none shrink-0"
+                      className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border outline-none"
                       style={{ background: BG, borderColor: BORD, color: TEXT }}>
-                      <option value="">Waiter…</option>
+                      <option value="">— Assign Waiter (optional) —</option>
                       {waiters.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
-                    <button
-                      onClick={() => assignWaiter(order)}
-                      disabled={processing.has(order.id) || !assignMap[order.id]}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-40 shrink-0"
-                      style={{ borderColor: BORD, color: TEXT, background: "transparent" }}>
-                      Assign
-                    </button>
                     <button
                       onClick={() => rejectOrder(order)}
                       disabled={processing.has(order.id)}
