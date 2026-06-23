@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { clearUser } from "../lib/store";
-import { DraftSalesModal, RecentSalesModal, SelfOrderQRModal, RegistryModal, RefundModal } from "../components/pos-toolbar-modals";
+import { DraftSalesModal, RecentSalesModal, SelfOrderQRModal, QROrdersModal, RegistryModal, RefundModal } from "../components/pos-toolbar-modals";
 
 // ── Theme tokens ──────────────────────────────────────────────────────────────
 const BG    = "var(--color-bg)";
@@ -1017,6 +1017,7 @@ export default function POSPage() {
   const [invoicePreviewId,   setInvoicePreviewId]   = useState<number | null>(null);
   const [invoicePreviewMode, setInvoicePreviewMode] = useState<"invoice" | "bill">("invoice");
   const [showSelfOrderQR,    setShowSelfOrderQR]    = useState(false);
+  const [showQROrders,       setShowQROrders]       = useState(false);
   const [showRegistry,       setShowRegistry]       = useState(false);
   const [showKotMenu,        setShowKotMenu]        = useState(false);
 
@@ -1403,6 +1404,39 @@ export default function POSPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders]);
 
+  // ── QR Orders polling (incoming customer orders from QR menu)
+  const [qrOrdersSeen, setQrOrdersSeen] = useState<Set<number>>(new Set());
+  const { data: qrOrdersData } = useQuery({
+    queryKey: ["qr-orders-pending", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const r = await fetch(`/api/orders?branchId=${branchId}&source=qr&status=pending`);
+      return r.json();
+    },
+    refetchInterval: 6000,
+  });
+  const pendingQROrders: any[] = (qrOrdersData as any)?.orders || [];
+  useEffect(() => {
+    const fresh = pendingQROrders.filter((o: any) => !qrOrdersSeen.has(o.id));
+    if (fresh.length > 0) {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        [0, 0.18].forEach(delay => {
+          const osc = ctx.createOscillator(); const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = "sine"; osc.frequency.value = 660;
+          gain.gain.setValueAtTime(0.001, ctx.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + delay + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+          osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.4);
+        });
+      } catch {}
+      showToast(`New QR order from Table ${fresh[0].tableId || "?"}!`);
+      setQrOrdersSeen(prev => { const n = new Set(prev); fresh.forEach((o: any) => n.add(o.id)); return n; });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQROrders]);
+
   // ── Logout
   function handleLogout() { clearUser(); navigate("/"); }
 
@@ -1435,7 +1469,7 @@ export default function POSPage() {
     { icon: Printer,   title: "Print Last Invoice",onClick: printLastInvoice },
     { icon: Receipt,   title: "Recent Sales",      onClick: () => setShowRecentSales(true) },
     { icon: RotateCcw, title: "Refund",            onClick: () => setShowRefund(true) },
-    { icon: QrCode,    title: "Self / Online Orders", onClick: () => setShowSelfOrderQR(true) },
+    { icon: QrCode,    title: "QR Table Orders", onClick: () => setShowQROrders(true), badge: pendingQROrders.length },
     { icon: Bell,      title: "Kitchen Ready",     onClick: () => { if (kitchenReady.length) showToast(`Ready: ${kitchenReady.map((o:any)=>o.orderNumber).join(", ")}`); else showToast("No orders ready"); }, badge: kitchenReady.length },
     { icon: BookOpen,  title: "Register Summary",  onClick: () => setShowRegistry(true) },
     { icon: Monitor,   title: "Customer Display",  onClick: openCustomerDisplay },
@@ -1909,6 +1943,9 @@ export default function POSPage() {
         <RecentSalesModal branchId={branchId!} onClose={() => setShowRecentSales(false)}
           onView={(id) => { setShowRecentSales(false); setDetailsOrderId(id); }}
           onReprint={(id) => openInvoicePreview(id)} />
+      )}
+      {showQROrders && (
+        <QROrdersModal branchId={branchId!} onClose={() => setShowQROrders(false)} />
       )}
       {showSelfOrderQR && (
         <SelfOrderQRModal branchId={branchId!} onClose={() => setShowSelfOrderQR(false)} />

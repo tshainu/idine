@@ -12,8 +12,10 @@ export const orders = new Hono()
   .get("/", async (c) => {
     const branchId = c.req.query("branchId");
     const status = c.req.query("status");
+    const source = c.req.query("source");
     const conditions: any[] = [];
     if (branchId) conditions.push(eq(schema.orders.branchId, parseInt(branchId)));
+    if (source) conditions.push(eq(schema.orders.source, source));
     if (status) conditions.push(eq(schema.orders.status, status));
     else conditions.push(ne(schema.orders.status, "cancelled"));
 

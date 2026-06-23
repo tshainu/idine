@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight, Table2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight, Table2, QrCode, Download, X } from "lucide-react";
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -20,6 +20,7 @@ export default function TablesPage() {
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [qrTable, setQrTable] = useState<any>(null);
 
   const { data: tablesData, isLoading } = useQuery({
     queryKey: ["tables", branchId],
@@ -120,6 +121,9 @@ export default function TablesPage() {
                     <span>{t.capacity || 4} seats</span>
                   </div>
                   <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setQrTable(t)} className="p-1 rounded" title="Download QR" style={{ color: "#38BDF8" }}>
+                      <QrCode size={12} />
+                    </button>
                     <button onClick={() => openEdit(t)} className="p-1 rounded text-xs" style={{ color: GOLD }}>
                       <Pencil size={12} />
                     </button>
@@ -136,6 +140,43 @@ export default function TablesPage() {
           )}
         </div>
       </div>
+
+      {/* QR Modal */}
+      {qrTable && (() => {
+        const menuUrl = `${window.location.origin}/menu?branch=${branchId}&table=${encodeURIComponent(qrTable.name)}`;
+        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(menuUrl)}`;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
+            <div className="w-80 rounded-2xl border p-6 flex flex-col items-center" style={{ background: SURF, borderColor: BORD }}>
+              <div className="flex w-full items-center justify-between mb-4">
+                <div>
+                  <div className="font-bold text-sm" style={{ color: TEXT }}>Table {qrTable.name} QR</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: MUTED }}>Customers scan to order</div>
+                </div>
+                <button onClick={() => setQrTable(null)}><X size={16} style={{ color: MUTED }} /></button>
+              </div>
+              <div className="p-3 rounded-xl bg-white mb-4">
+                <img src={qrSrc} alt={`QR for ${qrTable.name}`} width={240} height={240} />
+              </div>
+              <div className="w-full text-[10px] px-2 py-1.5 rounded border mb-3 truncate" style={{ background: "#0D0618", borderColor: BORD, color: MUTED }}>
+                {menuUrl}
+              </div>
+              <div className="flex gap-2 w-full">
+                <a href={qrSrc} download={`table-${qrTable.name}-qr.png`} target="_blank" rel="noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
+                  style={{ background: GOLD, color: "#1A0A2E" }}>
+                  <Download size={13} /> Download QR
+                </a>
+                <button onClick={() => { navigator.clipboard.writeText(menuUrl); }}
+                  className="px-3 py-2 rounded-xl text-xs border"
+                  style={{ borderColor: BORD, color: MUTED }}>
+                  Copy Link
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Form modal */}
       {showForm && (

@@ -31,6 +31,7 @@ import Modifiers from "./pages/modifiers";
 import Promotions from "./pages/promotions";
 import CustomerDisplay from "./pages/customer-display";
 import InvoicePrint from "./pages/invoice-print";
+import Menu from "./pages/menu";
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
         <Route path="/promotions" component={Promotions} />
         <Route path="/customer-display" component={CustomerDisplay} />
         <Route path="/invoice/:id" component={InvoicePrint} />
+        <Route path="/menu" component={Menu} />
       </Switch>
       {/* Do not remove — off by default, activated by parent iframe via postMessage */}
       {import.meta.env.DEV && <AgentFeedback />}

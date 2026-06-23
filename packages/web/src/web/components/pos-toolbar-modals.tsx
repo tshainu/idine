@@ -581,3 +581,225 @@ export function RefundModal({ branchId, onClose }: {
     </div>
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  QR ORDERS MODAL — Incoming orders from customer QR menu
+// ════════════════════════════════════════════════════════════════════════════
+export function QROrdersModal({ branchId, onClose }: { branchId: number; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [assignMap, setAssignMap] = useState<Record<number, number | null>>({});
+  const [processing, setProcessing] = useState<Set<number>>(new Set());
+
+  const { data: ordersData, isLoading } = useQuery({
+    queryKey: ["qr-orders-modal", branchId],
+    queryFn: async () => {
+      const r = await fetch(`/api/orders?branchId=${branchId}&source=qr&status=pending`);
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+
+  const { data: tablesData } = useQuery({
+    queryKey: ["tables", branchId],
+    queryFn: async () => (await api.tables.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ["users", branchId],
+    queryFn: async () => {
+      const r = await fetch(`/api/users?branchId=${branchId}`);
+      return r.json();
+    },
+  });
+
+  const pendingOrders: any[] = (ordersData as any)?.orders || [];
+  const tables: any[] = (tablesData as any)?.tables || [];
+  const waiters: any[] = ((usersData as any)?.users || []).filter((u: any) => u.role === "waiter" && u.isActive !== false);
+
+  function getTableName(tableId: number | null) {
+    if (!tableId) return "—";
+    return tables.find(t => t.id === tableId)?.name || `#${tableId}`;
+  }
+
+  async function acceptOrder(order: any) {
+    const waiterId = assignMap[order.id] ?? null;
+    setProcessing(prev => new Set(prev).add(order.id));
+    try {
+      // 1. Confirm order + assign waiter
+      await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "confirmed", waiterId, kotPrinted: false }),
+      });
+
+      // 2. Create print jobs for KOT (use all items, send to first printer or null)
+      const items: any[] = order.items || [];
+      if (items.length > 0) {
+        // Get printers for this branch
+        const printersRes = await fetch(`/api/printers?branchId=${branchId}`);
+        const printersJson = await printersRes.json();
+        const printers: any[] = printersJson.printers || [];
+        const kotPrinter = printers.find((p: any) => p.isKot || p.is_kot || p.type === "kitchen") || printers[0];
+        if (kotPrinter) {
+          const now = Date.now();
+          await fetch("/api/print-jobs/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobs: [{
+                branchId,
+                orderId: order.id,
+                printerId: kotPrinter.id,
+                idempotencyKey: `${order.id}-${kotPrinter.id}-qr-kot-${now}`,
+                type: "kot",
+                status: "pending",
+                payload: JSON.stringify({
+                  orderId: order.id,
+                  orderNumber: order.orderNumber,
+                  type: order.type,
+                  tableId: order.tableId,
+                  source: "qr",
+                  customerName: order.customerName,
+                  items: items.map(i => ({ name: i.name, qty: i.qty, modifiers: [] })),
+                }),
+              }],
+            }),
+          });
+        }
+      }
+
+      qc.invalidateQueries({ queryKey: ["qr-orders-modal"] });
+      qc.invalidateQueries({ queryKey: ["qr-orders-pending"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    } finally {
+      setProcessing(prev => { const n = new Set(prev); n.delete(order.id); return n; });
+    }
+  }
+
+  async function rejectOrder(order: any) {
+    if (!confirm(`Reject order ${order.orderNumber}?`)) return;
+    setProcessing(prev => new Set(prev).add(order.id));
+    try {
+      await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      qc.invalidateQueries({ queryKey: ["qr-orders-modal"] });
+      qc.invalidateQueries({ queryKey: ["qr-orders-pending"] });
+    } finally {
+      setProcessing(prev => { const n = new Set(prev); n.delete(order.id); return n; });
+    }
+  }
+
+  const ago = (ts: any) => {
+    if (!ts) return "";
+    const ms = ts < 1e12 ? ts * 1000 : ts;
+    const diff = Math.round((Date.now() - ms) / 60000);
+    if (diff < 1) return "just now";
+    if (diff === 1) return "1 min ago";
+    return `${diff} min ago`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
+      <div className="w-[640px] max-h-[85vh] flex flex-col rounded-2xl border" style={{ background: SURF, borderColor: BORD }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: BORD }}>
+          <div className="flex items-center gap-2">
+            <QrCode size={16} style={{ color: GOLD }} />
+            <div>
+              <span className="font-bold text-sm" style={{ color: TEXT }}>QR Table Orders</span>
+              {pendingOrders.length > 0 && (
+                <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
+                  style={{ background: "#EF4444", color: "#fff" }}>{pendingOrders.length} pending</span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose}><X size={16} style={{ color: MUTED }} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-40"><Spinner /></div>
+          ) : pendingOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 gap-3">
+              <QrCode size={40} className="opacity-20" style={{ color: DIM }} />
+              <p className="text-sm" style={{ color: MUTED }}>No pending QR orders</p>
+              <p className="text-xs" style={{ color: DIM }}>New orders will appear here automatically</p>
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: BORD }}>
+              {pendingOrders.map((order: any) => (
+                <div key={order.id} className="p-5">
+                  {/* Order header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold" style={{ color: TEXT }}>{order.orderNumber}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded font-semibold"
+                          style={{ background: GOLD + "22", color: GOLD }}>
+                          Table {getTableName(order.tableId)}
+                        </span>
+                      </div>
+                      <div className="text-xs mt-0.5" style={{ color: DIM }}>
+                        {order.customerName || "Customer"} · {ago(order.createdAt)}
+                        {order.notes && <span className="ml-2 italic">"{order.notes}"</span>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold" style={{ color: GOLD }}>LKR {Number(order.total || 0).toLocaleString()}</div>
+                      <div className="text-[10px]" style={{ color: DIM }}>{(order.items || []).length} items</div>
+                    </div>
+                  </div>
+
+                  {/* Items list */}
+                  <div className="rounded-lg border mb-3 overflow-hidden" style={{ borderColor: BORD }}>
+                    {(order.items || []).map((item: any, idx: number) => (
+                      <div key={item.id ?? idx} className="flex justify-between px-3 py-1.5 text-xs border-b last:border-0"
+                        style={{ borderColor: BORD }}>
+                        <span style={{ color: TEXT }}>{item.qty}× {item.name}</span>
+                        <span style={{ color: MUTED }}>LKR {Number(item.total || item.price * item.qty || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Assign waiter + actions */}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={assignMap[order.id] ?? ""}
+                      onChange={e => setAssignMap(prev => ({ ...prev, [order.id]: e.target.value ? parseInt(e.target.value) : null }))}
+                      className="flex-1 px-3 py-2 text-xs rounded-lg border outline-none"
+                      style={{ background: BG, borderColor: BORD, color: TEXT }}>
+                      <option value="">— Assign Waiter (optional) —</option>
+                      {waiters.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                    <button
+                      onClick={() => rejectOrder(order)}
+                      disabled={processing.has(order.id)}
+                      className="px-3 py-2 rounded-lg text-xs font-semibold border disabled:opacity-50"
+                      style={{ borderColor: "#EF4444", color: "#EF4444", background: "#EF444411" }}>
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => acceptOrder(order)}
+                      disabled={processing.has(order.id)}
+                      className="px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1.5"
+                      style={{ background: GOLD, color: "#1A0A2E" }}>
+                      {processing.has(order.id) ? <Spinner size={12} /> : <><Check size={13} /> Accept + Print KOT</>}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t shrink-0 text-right" style={{ borderColor: BORD }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}

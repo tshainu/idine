@@ -111,6 +111,7 @@ export const orders = sqliteTable("orders", {
   subtotal: real("subtotal").notNull().default(0),
   total: real("total").notNull().default(0),
   kotPrinted: integer("kot_printed", { mode: "boolean" }).notNull().default(false),
+  source: text("source").notNull().default("pos"), // pos | qr
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
