@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -20,6 +20,10 @@ export default function CategoriesPage() {
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
 
+  // Drag state
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
   const { data: catData, isLoading } = useQuery({
     queryKey: ["categories", branchId],
     queryFn: async () => (await api.categories.$get({ query: { branchId: String(branchId) } })).json(),
@@ -31,6 +35,9 @@ export default function CategoriesPage() {
 
   const categories: any[] = (catData as any)?.categories || [];
   const menuItems: any[] = (menuData as any)?.menuItems || [];
+
+  // Sort categories by sortOrder
+  const sorted = [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   function itemCount(catId: number) {
     return menuItems.filter(m => m.categoryId === catId).length;
@@ -66,6 +73,43 @@ export default function CategoriesPage() {
     else createCat.mutate(data);
   }
 
+  // Drag handlers
+  function onDragStart(idx: number) {
+    dragIdx.current = idx;
+  }
+  function onDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  }
+  function onDrop(e: React.DragEvent, dropIdx: number) {
+    e.preventDefault();
+    const fromIdx = dragIdx.current;
+    if (fromIdx === null || fromIdx === dropIdx) {
+      setDragOverIdx(null);
+      dragIdx.current = null;
+      return;
+    }
+
+    // Reorder locally
+    const reordered = [...sorted];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(dropIdx, 0, moved);
+
+    // Assign new sortOrder values & persist
+    reordered.forEach((cat, idx) => {
+      if (cat.sortOrder !== idx) {
+        updateCat.mutate({ id: cat.id, data: { sortOrder: idx } });
+      }
+    });
+
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  }
+  function onDragEnd() {
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  }
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: BG }}>
       <Sidebar />
@@ -93,11 +137,14 @@ export default function CategoriesPage() {
                 <span className="text-xs ml-2" style={{ color: MUTED }}>{s.label}</span>
               </div>
             ))}
+            <div className="text-xs flex items-center ml-2" style={{ color: DIM }}>
+              Drag rows to reorder
+            </div>
           </div>
 
           {isLoading ? (
             <div className="text-center py-10 text-xs" style={{ color: DIM }}>Loading...</div>
-          ) : categories.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="text-center py-16" style={{ color: DIM }}>
               <Tag size={40} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium mb-1" style={{ color: MUTED }}>No categories yet</p>
@@ -108,14 +155,31 @@ export default function CategoriesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${BORD}` }}>
+                    <th className="px-3 py-3 text-left text-xs font-semibold w-8" style={{ color: DIM }}></th>
                     {["Category Name", "Items", "Sort Order", "Active", "Actions"].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {categories.map((c: any) => (
-                    <tr key={c.id} className="border-t" style={{ borderColor: BORD }}>
+                  {sorted.map((c: any, idx: number) => (
+                    <tr
+                      key={c.id}
+                      className="border-t transition-colors"
+                      draggable
+                      onDragStart={() => onDragStart(idx)}
+                      onDragOver={e => onDragOver(e, idx)}
+                      onDrop={e => onDrop(e, idx)}
+                      onDragEnd={onDragEnd}
+                      style={{
+                        borderColor: BORD,
+                        background: dragOverIdx === idx ? "rgba(245,166,35,0.07)" : "transparent",
+                        outline: dragOverIdx === idx ? `2px solid ${GOLD}44` : "none",
+                      }}
+                    >
+                      <td className="px-3 py-3" style={{ cursor: "grab" }}>
+                        <GripVertical size={14} style={{ color: DIM }} />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(245,166,35,0.15)" }}>

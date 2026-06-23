@@ -1,10 +1,17 @@
 import app from "./api";
 import { randomBytes } from "crypto";
+import { mkdirSync } from "fs";
+import { runPrintWorker } from "./api/print-worker";
+import { runSyncWorker } from "./api/sync-worker";
 
 const port = Number(process.env.PORT ?? 3000);
 const distDir = `${import.meta.dir}/../dist`;
 const indexPath = `${distDir}/index.html`;
-const uploadsDir = `${distDir}/uploads`;
+// Store uploads outside dist/ so builds don't wipe them
+const uploadsDir = `${import.meta.dir}/../../uploads`;
+
+// Ensure uploads dir exists
+mkdirSync(uploadsDir, { recursive: true });
 
 const server = Bun.serve({
   port,
@@ -33,6 +40,13 @@ const server = Bun.serve({
       return app.fetch(request);
     }
 
+    // Serve uploaded files from persistent uploads dir
+    if (url.pathname.startsWith("/uploads/")) {
+      const fname = decodeURIComponent(url.pathname.replace(/^\/uploads\//, "")).replaceAll("..", "");
+      const uploadFile = Bun.file(`${uploadsDir}/${fname}`);
+      if (await uploadFile.exists()) return new Response(uploadFile);
+    }
+
     const filePath = getStaticFilePath(url.pathname);
     const file = Bun.file(filePath);
 
@@ -55,6 +69,9 @@ const server = Bun.serve({
 });
 
 console.log(`Web server listening on http://localhost:${server.port}`);
+
+runPrintWorker();
+runSyncWorker();
 
 function getStaticFilePath(pathname: string) {
   const cleanPath = decodeURIComponent(pathname)

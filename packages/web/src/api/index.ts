@@ -11,12 +11,16 @@ import { orderItems } from "./routes/order-items";
 import { printJobs } from "./routes/print-jobs";
 import { customers } from "./routes/customers";
 import { purchases } from "./routes/purchases";
+import { suppliers } from "./routes/suppliers";
+import { purchaseItems } from "./routes/purchase-items";
+import { purchasePayments } from "./routes/purchase-payments";
 import { expenses } from "./routes/expenses";
 import { ingredients } from "./routes/ingredients";
 import { modifiers } from "./routes/modifiers";
 import { promotions } from "./routes/promotions";
 import { settings } from "./routes/settings";
 import { variations } from "./routes/variations";
+import { sync } from "./routes/sync";
 
 const app = new Hono()
   .basePath("api")
@@ -34,12 +38,16 @@ const app = new Hono()
   .route("/print-jobs", printJobs)
   .route("/customers", customers)
   .route("/purchases", purchases)
+  .route("/suppliers", suppliers)
+  .route("/purchase-items", purchaseItems)
+  .route("/purchase-payments", purchasePayments)
   .route("/expenses", expenses)
   .route("/ingredients", ingredients)
   .route("/modifiers", modifiers)
   .route("/promotions", promotions)
   .route("/settings", settings)
-  .route("/variations", variations);
+  .route("/variations", variations)
+  .route("/sync", sync);
 
 export type AppType = typeof app;
 export default app;

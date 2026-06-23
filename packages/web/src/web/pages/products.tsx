@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, Tag, X, Upload, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, X, Upload, ImageIcon, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -153,12 +153,22 @@ function VariationModal({
   );
 }
 
+type ProdSortKey = "name" | "code" | "category" | "priceDineIn" | "priceTakeaway" | "priceDelivery";
+type SortDir = "asc" | "desc";
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function ProductsPage() {
   const branchId = getBranchId();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
+  const [sortKey, setSortKey] = useState<ProdSortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(key: ProdSortKey) {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -188,9 +198,11 @@ export default function ProductsPage() {
     queryKey: ["categories", branchId],
     queryFn: async () => (await api.categories.$get({ query: { branchId: String(branchId) } })).json(),
   });
-  const { data: printersData } = useQuery({
+  // printers query kept for potential future use but not shown in form
+  const { data: _printersData } = useQuery({
     queryKey: ["printers", branchId],
     queryFn: async () => (await api.printers.$get({ query: { branchId: String(branchId) } })).json(),
+    enabled: false,
   });
 
   // Variations for currently editing item
@@ -204,12 +216,23 @@ export default function ProductsPage() {
 
   const items: any[] = (menuData as any)?.menuItems || [];
   const categories: any[] = (catData as any)?.categories || [];
-  const printers: any[] = (printersData as any)?.printers || [];
 
   const filtered = items.filter(m => {
     const matchSearch = !search || m.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCat === "all" || String(m.categoryId) === filterCat;
     return matchSearch && matchCat;
+  });
+
+  const sortedItems = [...filtered].sort((a, b) => {
+    let av: any, bv: any;
+    if (sortKey === "priceDineIn") { av = Number(a.priceDineIn || a.price || 0); bv = Number(b.priceDineIn || b.price || 0); }
+    else if (sortKey === "priceTakeaway") { av = Number(a.priceTakeaway || 0); bv = Number(b.priceTakeaway || 0); }
+    else if (sortKey === "priceDelivery") { av = Number(a.priceDelivery || 0); bv = Number(b.priceDelivery || 0); }
+    else if (sortKey === "category") { av = catName(a.categoryId); bv = catName(b.categoryId); }
+    else { av = String(a[sortKey] || ""); bv = String(b[sortKey] || ""); }
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
   });
 
   // Mutations
@@ -271,10 +294,9 @@ export default function ProductsPage() {
       priceTakeaway: item.priceTakeaway ?? item.price ?? "",
       priceDelivery: item.priceDelivery ?? item.price ?? "",
       description: item.description || "",
-      imageUrl: item.imageUrl || "",
+      imageUrl: item.imageUrl ?? "",
       loyaltyPoint: item.loyaltyPoint ?? 0,
       categoryId: item.categoryId,
-      printerId: item.printerId,
       isVeg: item.isVeg || false,
       isBeverage: item.isBeverage || false,
       isPromo: item.isPromo || false,
@@ -293,7 +315,6 @@ export default function ProductsPage() {
       priceDelivery: Number(form.priceDelivery) || 0,
       loyaltyPoint: Number(form.loyaltyPoint) || 0,
       categoryId: Number(form.categoryId) || null,
-      printerId: form.printerId ? Number(form.printerId) : null,
       sortOrder: Number(form.sortOrder) || 0,
       isVeg: !!form.isVeg,
       isBeverage: !!form.isBeverage,
@@ -310,8 +331,6 @@ export default function ProductsPage() {
   }
 
   function catName(id: number) { return categories.find(c => c.id === id)?.name || "—"; }
-  function printerName(id: number | null) { if (!id) return "None"; return printers.find(p => p.id === id)?.name || "None"; }
-
   const isPending = createItem.isPending || updateItem.isPending;
 
   return (
@@ -367,17 +386,38 @@ export default function ProductsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${BORD}` }}>
-                  {["Name", "Code", "Category", "Dine In", "Takeaway", "Delivery", "Tags", "Active", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>{h}</th>
+                  {([
+                    { label: "Name", key: "name" },
+                    { label: "Code", key: "code" },
+                    { label: "Category", key: "category" },
+                    { label: "Dine In", key: "priceDineIn" },
+                    { label: "Takeaway", key: "priceTakeaway" },
+                    { label: "Delivery", key: "priceDelivery" },
+                    { label: "Tags", key: null },
+                    { label: "Active", key: null },
+                    { label: "Actions", key: null },
+                  ] as { label: string; key: ProdSortKey | null }[]).map(h => (
+                    <th key={h.label}
+                      className={`px-4 py-3 text-left text-xs font-semibold ${h.key ? "cursor-pointer select-none" : ""}`}
+                      style={{ color: h.key && sortKey === h.key ? GOLD : DIM }}
+                      onClick={() => h.key && handleSort(h.key)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {h.label}
+                        {h.key && (sortKey === h.key
+                          ? (sortDir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)
+                          : <ArrowUpDown size={11} style={{ opacity: 0.35 }} />)}
+                      </span>
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr><td colSpan={9} className="text-center py-10 text-xs" style={{ color: DIM }}>Loading...</td></tr>
-                ) : filtered.length === 0 ? (
+                ) : sortedItems.length === 0 ? (
                   <tr><td colSpan={9} className="text-center py-10 text-xs" style={{ color: DIM }}>No items found</td></tr>
-                ) : filtered.map((m: any) => (
+                ) : sortedItems.map((m: any) => (
                   <tr key={m.id} className="border-t" style={{ borderColor: BORD }}>
                     <td className="px-4 py-3 text-xs font-medium" style={{ color: TEXT }}>{m.name}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>{m.code || "—"}</td>
@@ -466,8 +506,8 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Row 3: Description + Image + Printer */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Row 3: Description + Image */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FLabel>Description</FLabel>
                   <input value={form.description ?? ""} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
@@ -497,14 +537,6 @@ export default function ProductsPage() {
                       <Upload size={12} />{imgUploading ? "Uploading..." : "Upload Image"}
                     </button>
                   </div>
-                </div>
-                <div>
-                  <FLabel>Print Station (KOT)</FLabel>
-                  <select value={form.printerId || ""} onChange={e => setForm(p => ({ ...p, printerId: e.target.value }))}
-                    className={inputCls} style={inputStyle({ cursor: "pointer" })}>
-                    <option value="">None</option>
-                    {printers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
                 </div>
               </div>
 

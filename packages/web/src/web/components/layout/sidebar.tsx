@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, Tag, SlidersHorizontal,
   TrendingUp, Users, Percent, Monitor, ChefHat, Table2,
   Settings, BarChart3, LogOut, ChevronDown, ChevronRight, Sun, Moon,
+  ShoppingBag, Package, Building2,
 } from "lucide-react";
 import { useTheme } from "../../lib/useTheme";
+import { api } from "../../lib/api";
+import { getBranchId } from "../../lib/store";
 
 const GOLD = "var(--color-gold)";
 const SURF = "var(--color-surface)";
@@ -47,23 +51,57 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    id: "purchases", type: "group", label: "Purchases", icon: ShoppingBag,
+    items: [
+      { path: "/purchases",          label: "List of Purchases", icon: ShoppingBag },
+      { path: "/purchases/items",    label: "Purchase Items",    icon: Package },
+      { path: "/purchases/suppliers", label: "Suppliers",        icon: Building2 },
+    ],
+  },
+  {
     id: "users", type: "group", label: "Users", icon: Users,
     items: [
       { path: "/users", label: "List Users", icon: Users },
     ],
   },
   { id: "settings", type: "link", label: "Settings", icon: Settings, path: "/settings" },
-  { id: "reports",  type: "link", label: "Reports",  icon: BarChart3, path: "/reports" },
+  {
+    id: "reports", type: "group", label: "Reports", icon: BarChart3,
+    items: [
+      { path: "/reports/sales",     label: "Sales Performance",  icon: TrendingUp },
+      { path: "/reports/menu",      label: "Menu Performance",   icon: UtensilsCrossed },
+      { path: "/reports/inventory", label: "Inventory & Stock",  icon: SlidersHorizontal },
+      { path: "/reports/pl",        label: "Profit & Loss",      icon: BarChart3 },
+      { path: "/reports/staff",     label: "Staff Performance",  icon: Users },
+      { path: "/reports/customers", label: "Customer Analytics", icon: ChefHat },
+    ],
+  },
 ];
 
 export function Sidebar() {
   const [location, navigate] = useLocation();
   const { isDark, toggle: toggleTheme } = useTheme();
+  const branchId = getBranchId();
 
   // Only collapsible groups need open state; default all open
   const [open, setOpen] = useState<Record<string, boolean>>({
-    item: true, sales: false, panel: false, users: true,
+    item: true, sales: false, panel: false, purchases: true, users: true, reports: true,
   });
+
+  const { data: branchData } = useQuery({
+    queryKey: ["branches", branchId],
+    queryFn: async () => (await api.branches[":id"].$get({ param: { id: String(branchId) } })).json(),
+    staleTime: 60_000,
+  });
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+    staleTime: 60_000,
+  });
+
+  const branchName: string = (branchData as any)?.branch?.name || "iDine";
+  const outletLogo: string | undefined = (settingsData as any)?.settings?.outletLogo;
 
   function toggle(id: string) {
     setOpen(prev => ({ ...prev, [id]: !prev[id] }));
@@ -83,9 +121,13 @@ export function Sidebar() {
       {/* Logo */}
       <div className="p-4 border-b shrink-0" style={{ borderColor: BORD }}>
         <div className="flex items-center gap-2.5">
-          <img src="/logo-icon.png" alt="iDine" className="w-9 h-9 rounded-xl shrink-0 object-contain" />
+          {outletLogo ? (
+            <img src={outletLogo} alt={branchName} className="w-9 h-9 rounded-xl shrink-0 object-contain" />
+          ) : (
+            <img src="/logo-icon.png" alt="iDine" className="w-9 h-9 rounded-xl shrink-0 object-contain" />
+          )}
           <div>
-            <div className="font-bold text-sm" style={{ color: GOLD }}>iDine</div>
+            <div className="font-bold text-sm" style={{ color: GOLD }}>{branchName}</div>
             <div className="text-[10px]" style={{ color: MUTED }}>Restaurant POS</div>
           </div>
         </div>

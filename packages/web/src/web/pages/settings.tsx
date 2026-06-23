@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Save, CheckCircle, RotateCcw, HelpCircle, ChevronRight } from "lucide-react";
+import { Save, CheckCircle, HelpCircle, ChevronRight, ImageIcon, Upload, X } from "lucide-react";
 import { useLocation } from "wouter";
 
 const GOLD = "#F5A623";
@@ -58,13 +58,45 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
   const branchId = getBranchId();
   const qc = useQueryClient();
   const [saved, setSaved] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [headerPreview, setHeaderPreview] = useState<string | null>(null);
+  const [headerUploading, setHeaderUploading] = useState(false);
+  const headerInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
-    outletName: "Delizz Restaurant",
-    phone: "0779900280",
-    email: "delizz@gmail.com",
-    address: "Palaly Road, Thirunelveli, Jaffna",
+    outletName: "",
+    phone: "",
+    email: "",
+    address: "",
     cashier: "",
   });
+
+  // Load branch data
+  const { data: branchData } = useQuery({
+    queryKey: ["branches", branchId],
+    queryFn: async () => (await api.branches[":id"].$get({ param: { id: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const b = (branchData as any)?.branch;
+    if (b) setForm(f => ({ ...f, outletName: b.name || "", address: b.address || "" }));
+  }, [branchData]);
+
+  // Load settings (for logo + phone/email)
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const s = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (!s) return;
+    if (s.outletPhone) setForm(f => ({ ...f, phone: s.outletPhone }));
+    if (s.outletEmail) setForm(f => ({ ...f, email: s.outletEmail }));
+    if (s.outletCashier) setForm(f => ({ ...f, cashier: s.outletCashier }));
+    if (s.outletLogo) setLogoPreview(s.outletLogo);
+    if (s.invoiceLogo) setLogoPreview(s.invoiceLogo);
+    if (s.invoiceHeader) setHeaderPreview(s.invoiceHeader);
+  }, [settingsData]);
 
   const { data: usersData } = useQuery({
     queryKey: ["users", branchId],
@@ -74,16 +106,68 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
 
   const updateBranch = useMutation({
     mutationFn: async (data: any) => (await api.branches[":id"].$patch({ param: { id: String(branchId) }, json: data })).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["branches"] }); },
+  });
+
+  const saveSettings = useMutation({
+    mutationFn: async (kv: Record<string, string>) =>
+      (await api.settings.$post({ json: { branchId, settings: kv } })).json(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["branches"] });
+      qc.invalidateQueries({ queryKey: ["settings", branchId] });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => { setSaved(false); onBack(); }, 1200);
     },
   });
 
   function set(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm(f => ({ ...f, [key]: e.target.value }));
+  }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json() as any;
+      if (json.url) setLogoPreview(json.url);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function handleHeaderChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setHeaderUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json() as any;
+      if (json.url) setHeaderPreview(json.url);
+    } finally {
+      setHeaderUploading(false);
+    }
+  }
+
+  async function handleSubmit() {
+    updateBranch.mutate({ name: form.outletName, address: form.address });
+    const kv: Record<string, string> = {
+      outletPhone: form.phone,
+      outletEmail: form.email,
+      outletCashier: form.cashier,
+      outletAddress: form.address,
+    };
+    if (logoPreview) { kv.outletLogo = logoPreview; kv.invoiceLogo = logoPreview; }
+    if (headerPreview) kv.invoiceHeader = headerPreview;
+    else kv.invoiceHeader = "";
+    saveSettings.mutate(kv);
   }
 
   return (
@@ -93,6 +177,67 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
           <h2 className="text-xl font-bold" style={{ color: TEXT }}>Outlet Setting</h2>
         </div>
         <div className="p-6 space-y-5">
+          {/* Logo upload */}
+          <Field label="Outlet Logo">
+            <div className="flex items-center gap-4">
+              {logoPreview ? (
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border shrink-0" style={{ borderColor: BORD, background: BG }}>
+                  <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
+                  <button onClick={() => setLogoPreview(null)}
+                    className="absolute top-0.5 right-0.5 bg-black/70 rounded p-0.5" style={{ color: "#fff" }}>
+                    <X size={10} />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-xl flex items-center justify-center border shrink-0" style={{ borderColor: BORD, background: BG }}>
+                  <ImageIcon size={20} style={{ color: DIM }} />
+                </div>
+              )}
+              <input ref={logoInputRef} type="file" className="hidden" accept="image/*" onChange={handleLogoChange} />
+              <button type="button" disabled={logoUploading} onClick={() => logoInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg border font-medium"
+                style={{ borderColor: BORD, color: logoUploading ? DIM : MUTED, background: BG }}>
+                <Upload size={12} />
+                {logoUploading ? "Uploading…" : "Upload Logo"}
+              </button>
+              {logoPreview && (
+                <span className="text-xs" style={{ color: "#22C55E" }}>✓ Uploaded</span>
+              )}
+            </div>
+          </Field>
+
+          {/* Invoice Header upload */}
+          <Field label="Invoice Header Image" help="Wide banner image shown at the top of printed invoices & bills. If not set, restaurant info will appear as text instead.">
+            <div className="flex items-center gap-4">
+              {headerPreview ? (
+                <div className="relative rounded-xl overflow-hidden border shrink-0" style={{ borderColor: BORD, background: BG, width: 180, height: 52 }}>
+                  <img src={headerPreview} alt="Invoice Header" className="w-full h-full object-contain" />
+                  <button onClick={() => setHeaderPreview(null)}
+                    className="absolute top-0.5 right-0.5 bg-black/70 rounded p-0.5" style={{ color: "#fff" }}>
+                    <X size={10} />
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl flex items-center justify-center border shrink-0" style={{ borderColor: BORD, background: BG, width: 180, height: 52 }}>
+                  <span className="text-xs" style={{ color: DIM }}>No header image</span>
+                </div>
+              )}
+              <input ref={headerInputRef} type="file" className="hidden" accept="image/*" onChange={handleHeaderChange} />
+              <div className="flex flex-col gap-1.5">
+                <button type="button" disabled={headerUploading} onClick={() => headerInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg border font-medium"
+                  style={{ borderColor: BORD, color: headerUploading ? DIM : MUTED, background: BG }}>
+                  <Upload size={12} />
+                  {headerUploading ? "Uploading…" : headerPreview ? "Change Header" : "Upload Header"}
+                </button>
+                <span className="text-[11px]" style={{ color: DIM }}>Recommended: 576×120px, PNG/JPG</span>
+              </div>
+              {headerPreview && (
+                <span className="text-xs" style={{ color: "#22C55E" }}>✓ Uploaded</span>
+              )}
+            </div>
+          </Field>
+
           <div className="grid grid-cols-2 gap-4">
             <Field label="Outlet Name" required>
               <Input value={form.outletName} onChange={set("outletName")} />
@@ -119,11 +264,12 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
           </Field>
           <div className="flex gap-3 pt-2">
             <button
-              onClick={() => { updateBranch.mutate({ name: form.outletName, address: form.address }); }}
-              className="px-6 py-2.5 rounded-lg text-sm font-semibold"
-              style={{ background: PURPLE, color: "#fff" }}
+              onClick={handleSubmit}
+              disabled={updateBranch.isPending || saveSettings.isPending}
+              className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+              style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}
             >
-              {saved ? "Saved!" : "Submit"}
+              {saved ? "Saved!" : (updateBranch.isPending || saveSettings.isPending) ? "Saving…" : "Submit"}
             </button>
             <button
               onClick={onBack}
@@ -139,49 +285,30 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
   );
 }
 
-// Sub-page: Tax Setting
-function TaxSetting({ onBack }: { onBack: () => void }) {
-  const [saved, setSaved] = useState(false);
-  const [form, setForm] = useState({ taxName: "VAT", taxPercent: "0", taxType: "inclusive" });
-  function set(key: keyof typeof form) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm(f => ({ ...f, [key]: e.target.value }));
-  }
-  return (
-    <div className="max-w-xl mx-auto">
-      <div className="rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
-        <div className="px-6 py-5 border-b" style={{ borderColor: BORD }}>
-          <h2 className="text-xl font-bold" style={{ color: TEXT }}>Tax Setting</h2>
-        </div>
-        <div className="p-6 space-y-4">
-          <Field label="Tax Name" required><Input value={form.taxName} onChange={set("taxName")} /></Field>
-          <Field label="Tax %" required><Input type="number" value={form.taxPercent} onChange={set("taxPercent")} /></Field>
-          <Field label="Tax Type">
-            <Select value={form.taxType} onChange={set("taxType")}>
-              <option value="inclusive">Inclusive</option>
-              <option value="exclusive">Exclusive</option>
-            </Select>
-          </Field>
-          <div className="flex gap-3 pt-2">
-            <button onClick={() => setSaved(true)} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>
-              {saved ? "Saved!" : "Submit"}
-            </button>
-            <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Sub-page: Payment Methods
 function PaymentMethods({ onBack }: { onBack: () => void }) {
+  const branchId = getBranchId();
+  const qc = useQueryClient();
   const DEFAULT = ["Cash", "Card", "Online Transfer", "Bank Transfer"];
   const [methods, setMethods] = useState<{ name: string; active: boolean }[]>(
     DEFAULT.map(n => ({ name: n, active: n === "Cash" || n === "Card" }))
   );
   const [newName, setNewName] = useState("");
   const [saved, setSaved] = useState(false);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const r = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (r?.paymentMethods) { try { const v = JSON.parse(r.paymentMethods); if (Array.isArray(v) && v.length) setMethods(v); } catch {} }
+  }, [settingsData]);
+
+  const save = useMutation({
+    mutationFn: async () => (await api.settings.$post({ json: { branchId, settings: { paymentMethods: JSON.stringify(methods) } } })).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["settings", branchId] }); setSaved(true); setTimeout(() => { setSaved(false); onBack(); }, 1200); },
+  });
 
   function toggle(idx: number) {
     setMethods(prev => prev.map((m, i) => i === idx ? { ...m, active: !m.active } : m));
@@ -195,10 +322,7 @@ function PaymentMethods({ onBack }: { onBack: () => void }) {
   function removeMethod(idx: number) {
     setMethods(prev => prev.filter((_, i) => i !== idx));
   }
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
+  function handleSave() { save.mutate(); }
 
   return (
     <div className="max-w-xl mx-auto">
@@ -244,56 +368,357 @@ function PaymentMethods({ onBack }: { onBack: () => void }) {
 
 // Sub-page: Printer Setup
 function PrinterSetup({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<"invoice" | "bill" | "kot">("invoice");
+  const [tab, setTab] = useState<"invoice" | "bill" | "kot" | "manage">("invoice");
   const branchId = getBranchId();
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState(false);
+  const [cfg, setCfg] = useState<Record<string, { printerId: string; paper: string }>>({
+    invoice: { printerId: "", paper: "80mm" },
+    bill:    { printerId: "", paper: "80mm" },
+    kot:     { printerId: "", paper: "80mm" },
+  });
+  // printerCategories: { [printerId: string]: number[] }
+  const [printerCategories, setPrinterCategories] = useState<Record<string, number[]>>({});
+
+  // Manage Printers state
+  const emptyPrinter = { name: "", type: "kot", connection: "lan", ipAddress: "", port: 9100 };
+  const [showAdd, setShowAdd] = useState(false);
+  const [newPrinter, setNewPrinter] = useState<typeof emptyPrinter>({ ...emptyPrinter });
+  const [newPrinterCats, setNewPrinterCats] = useState<number[]>([]);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editData, setEditData] = useState<typeof emptyPrinter>({ ...emptyPrinter });
+  const [editCats, setEditCats] = useState<number[]>([]);
+
   const { data: printersData } = useQuery({
     queryKey: ["printers", branchId],
     queryFn: async () => (await api.printers.$get({ query: { branchId: String(branchId) } })).json(),
   });
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories", branchId],
+    queryFn: async () => (await api.categories.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const r = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (r?.printerSetup) {
+      try {
+        const parsed = JSON.parse(r.printerSetup);
+        setCfg(c => ({ ...c, ...parsed }));
+        if (parsed.printerCategories) setPrinterCategories(parsed.printerCategories);
+      } catch {}
+    }
+  }, [settingsData]);
+  const save = useMutation({
+    mutationFn: async () => (await api.settings.$post({ json: { branchId, settings: { printerSetup: JSON.stringify({ ...cfg, printerCategories }) } } })).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["settings", branchId] }); setSaved(true); setTimeout(() => { setSaved(false); onBack(); }, 1200); },
+  });
+
+  const addPrinter = useMutation({
+    mutationFn: async ({ data, cats }: { data: typeof emptyPrinter; cats: number[] }) =>
+      (await api.printers.$post({ json: { ...data, branchId, port: Number(data.port), isActive: true } })).json(),
+    onSuccess: (res: any, vars) => {
+      const newId = String(res?.printer?.id);
+      if (newId) setPrinterCategories(pc => ({ ...pc, [newId]: vars.cats }));
+      qc.invalidateQueries({ queryKey: ["printers", branchId] });
+      setShowAdd(false);
+      setNewPrinter({ ...emptyPrinter });
+      setNewPrinterCats([]);
+    },
+  });
+  const updatePrinter = useMutation({
+    mutationFn: async ({ id, data, cats }: { id: number; data: typeof emptyPrinter; cats: number[] }) =>
+      (await (api.printers as any)[":id"].$patch({ param: { id: String(id) }, json: { ...data, port: Number(data.port) } })).json(),
+    onSuccess: (_res: any, vars) => {
+      setPrinterCategories(pc => ({ ...pc, [String(vars.id)]: vars.cats }));
+      qc.invalidateQueries({ queryKey: ["printers", branchId] });
+      setEditId(null);
+    },
+  });
+  const deletePrinter = useMutation({
+    mutationFn: async (id: number) =>
+      (await (api.printers as any)[":id"].$delete({ param: { id: String(id) } })).json(),
+    onSuccess: (_res: any, id: number) => {
+      setPrinterCategories(pc => { const n = { ...pc }; delete n[String(id)]; return n; });
+      qc.invalidateQueries({ queryKey: ["printers", branchId] });
+    },
+  });
+
+  function toggleCat(cats: number[], id: number): number[] {
+    return cats.includes(id) ? cats.filter(c => c !== id) : [...cats, id];
+  }
+
+  // Returns set of category IDs already claimed by other printers (excludes `excludePrinterId`)
+  function takenBy(excludePrinterId: string | null): Set<number> {
+    const taken = new Set<number>();
+    Object.entries(printerCategories).forEach(([pid, cats]) => {
+      if (pid !== excludePrinterId) cats.forEach(id => taken.add(id));
+    });
+    return taken;
+  }
+
+  const allCategories: any[] = (categoriesData as any)?.categories?.filter((c: any) => c.isActive) || [];
+
+  function setField(key: "printerId" | "paper", value: string) {
+    setCfg(c => ({ ...c, [tab]: { ...c[tab], [key]: value } }));
+  }
   const printers: any[] = (printersData as any)?.printers || [];
   const tabs = [
     { id: "invoice" as const, label: "Invoice Printer" },
     { id: "bill" as const, label: "Bill Printer" },
     { id: "kot" as const, label: "KOT Printer" },
+    { id: "manage" as const, label: "Manage Printers" },
   ];
+
+  const inputCls = "w-full px-3 py-2 rounded-lg text-sm border outline-none";
+  const inputStyle = { background: BG, borderColor: BORD, color: TEXT };
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
         <div className="px-6 py-5 border-b" style={{ borderColor: BORD }}>
           <h2 className="text-xl font-bold" style={{ color: TEXT }}>Printer Setup</h2>
         </div>
-        <div className="flex border-b" style={{ borderColor: BORD }}>
+        <div className="flex border-b overflow-x-auto" style={{ borderColor: BORD }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className="px-5 py-3 text-xs font-semibold transition-all"
+              className="px-5 py-3 text-xs font-semibold transition-all whitespace-nowrap"
               style={{ color: tab === t.id ? GOLD : DIM, borderBottom: tab === t.id ? `2px solid ${GOLD}` : "2px solid transparent" }}>
               {t.label}
             </button>
           ))}
         </div>
-        <div className="p-6 space-y-4">
-          <Field label="Select Printer">
-            <Select>
-              <option value="">— None —</option>
-              {printers.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.type})</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Paper Size">
-            <Select>
-              <option value="80mm">80mm</option>
-              <option value="58mm">58mm</option>
-            </Select>
-          </Field>
-          <div className="text-xs" style={{ color: DIM }}>
-            Manage printers (add/edit/delete) in Admin → Printers.
+
+        {tab !== "manage" ? (
+          <div className="p-6 space-y-4">
+            <Field label="Select Printer">
+              <Select value={cfg[tab]?.printerId ?? ""} onChange={e => setField("printerId", e.target.value)}>
+                <option value="">— None —</option>
+                {printers.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.type})</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Paper Size">
+              <Select value={cfg[tab]?.paper ?? "80mm"} onChange={e => setField("paper", e.target.value)}>
+                <option value="80mm">80mm</option>
+                <option value="58mm">58mm</option>
+              </Select>
+            </Field>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
+              <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+            </div>
           </div>
-          <div className="flex gap-3 pt-2">
-            <button className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>Save</button>
-            <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+        ) : (
+          <div className="p-6 space-y-4">
+            {/* Printer list */}
+            {printers.length === 0 && !showAdd && (
+              <div className="text-sm py-4 text-center" style={{ color: DIM }}>No printers configured yet.</div>
+            )}
+            {printers.map((p: any) => (
+              <div key={p.id} className="rounded-xl border p-4" style={{ borderColor: BORD, background: BG }}>
+                {editId === p.id ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: DIM }}>Name</div>
+                        <input className={inputCls} style={inputStyle} value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: DIM }}>Type</div>
+                        <select className={inputCls} style={inputStyle} value={editData.type} onChange={e => setEditData(d => ({ ...d, type: e.target.value }))}>
+                          <option value="kot">KOT</option>
+                          <option value="bill">Bill</option>
+                          <option value="invoice">Invoice</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: DIM }}>Connection</div>
+                        <select className={inputCls} style={inputStyle} value={editData.connection} onChange={e => setEditData(d => ({ ...d, connection: e.target.value }))}>
+                          <option value="lan">LAN / TCP</option>
+                          <option value="usb">USB</option>
+                        </select>
+                      </div>
+                      {editData.connection === "lan" && (
+                        <>
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: DIM }}>IP Address</div>
+                            <input className={inputCls} style={inputStyle} value={editData.ipAddress} placeholder="192.168.1.100" onChange={e => setEditData(d => ({ ...d, ipAddress: e.target.value }))} />
+                          </div>
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: DIM }}>Port</div>
+                            <input className={inputCls} style={inputStyle} type="number" value={editData.port} onChange={e => setEditData(d => ({ ...d, port: Number(e.target.value) }))} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {allCategories.length > 0 && (
+                      <>
+                        <div className="border-t pt-3" style={{ borderColor: BORD }}>
+                          <div className="text-xs font-semibold mb-2" style={{ color: DIM }}>Print Categories</div>
+                          <div className="flex flex-wrap gap-2">
+                            {allCategories.map((cat: any) => {
+                              const sel = editCats.includes(cat.id);
+                              const taken = !sel && takenBy(String(p.id)).has(cat.id);
+                              return (
+                                <button key={cat.id} type="button"
+                                  disabled={taken}
+                                  onClick={() => !taken && setEditCats(c => toggleCat(c, cat.id))}
+                                  className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                                  style={{
+                                    background: sel ? PURPLE : "transparent",
+                                    color: sel ? "#fff" : taken ? BORD : DIM,
+                                    border: `1.5px solid ${sel ? PURPLE : taken ? BORD : BORD}`,
+                                    opacity: taken ? 0.4 : 1,
+                                    cursor: taken ? "not-allowed" : "pointer",
+                                    textDecoration: taken ? "line-through" : "none",
+                                  }}>
+                                  {cat.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => updatePrinter.mutate({ id: p.id, data: editData, cats: editCats })} disabled={updatePrinter.isPending} className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50" style={{ background: PURPLE, color: "#fff" }}>
+                        {updatePrinter.isPending ? "Saving…" : "Save"}
+                      </button>
+                      <button onClick={() => setEditId(null)} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: BORD, color: TEXT }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: TEXT }}>{p.name}</div>
+                        <div className="text-xs mt-0.5" style={{ color: DIM }}>
+                          {p.type?.toUpperCase()} · {p.connection === "lan" ? `${p.ipAddress}:${p.port}` : "USB"}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditId(p.id); setEditData({ name: p.name, type: p.type, connection: p.connection, ipAddress: p.ipAddress || "", port: p.port || 9100 }); setEditCats(printerCategories[String(p.id)] || []); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: PURPLE + "33", color: PURPLE }}>Edit</button>
+                        <button onClick={() => { if (confirm(`Delete printer "${p.name}"?`)) deletePrinter.mutate(p.id); }}
+                          disabled={deletePrinter.isPending}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50" style={{ background: "#ef444422", color: "#ef4444" }}>Delete</button>
+                      </div>
+                    </div>
+                    {(() => {
+                      const cats = (printerCategories[String(p.id)] || [])
+                        .map((cid: number) => allCategories.find((c: any) => c.id === cid)?.name)
+                        .filter(Boolean);
+                      return cats.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t" style={{ borderColor: BORD }}>
+                          {cats.map((name: string) => (
+                            <span key={name} className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+                              style={{ background: PURPLE + "22", color: PURPLE, border: `1px solid ${PURPLE}44` }}>
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Add new printer form */}
+            {showAdd ? (
+              <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: GOLD + "66", background: BG }}>
+                <div className="text-sm font-semibold" style={{ color: GOLD }}>New Printer</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: DIM }}>Name</div>
+                    <input className={inputCls} style={inputStyle} value={newPrinter.name} placeholder="e.g. Kitchen Printer" onChange={e => setNewPrinter(d => ({ ...d, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: DIM }}>Type</div>
+                    <select className={inputCls} style={inputStyle} value={newPrinter.type} onChange={e => setNewPrinter(d => ({ ...d, type: e.target.value }))}>
+                      <option value="kot">KOT</option>
+                      <option value="bill">Bill</option>
+                      <option value="invoice">Invoice</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: DIM }}>Connection</div>
+                    <select className={inputCls} style={inputStyle} value={newPrinter.connection} onChange={e => setNewPrinter(d => ({ ...d, connection: e.target.value }))}>
+                      <option value="lan">LAN / TCP</option>
+                      <option value="usb">USB</option>
+                    </select>
+                  </div>
+                  {newPrinter.connection === "lan" && (
+                    <>
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: DIM }}>IP Address</div>
+                        <input className={inputCls} style={inputStyle} value={newPrinter.ipAddress} placeholder="192.168.1.100" onChange={e => setNewPrinter(d => ({ ...d, ipAddress: e.target.value }))} />
+                      </div>
+                      <div>
+                        <div className="text-xs mb-1" style={{ color: DIM }}>Port</div>
+                        <input className={inputCls} style={inputStyle} type="number" value={newPrinter.port} onChange={e => setNewPrinter(d => ({ ...d, port: Number(e.target.value) }))} />
+                      </div>
+                    </>
+                  )}
+                </div>
+                {allCategories.length > 0 && (
+                  <div className="border-t pt-3" style={{ borderColor: BORD }}>
+                    <div className="text-xs font-semibold mb-2" style={{ color: DIM }}>Print Categories</div>
+                    <div className="flex flex-wrap gap-2">
+                      {allCategories.map((cat: any) => {
+                        const sel = newPrinterCats.includes(cat.id);
+                        const taken = !sel && takenBy(null).has(cat.id);
+                        return (
+                          <button key={cat.id} type="button"
+                            disabled={taken}
+                            onClick={() => !taken && setNewPrinterCats(c => toggleCat(c, cat.id))}
+                            className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                            style={{
+                              background: sel ? PURPLE : "transparent",
+                              color: sel ? "#fff" : taken ? BORD : DIM,
+                              border: `1.5px solid ${sel ? PURPLE : BORD}`,
+                              opacity: taken ? 0.4 : 1,
+                              cursor: taken ? "not-allowed" : "pointer",
+                              textDecoration: taken ? "line-through" : "none",
+                            }}>
+                            {cat.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => addPrinter.mutate({ data: newPrinter, cats: newPrinterCats })} disabled={addPrinter.isPending || !newPrinter.name.trim()}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50" style={{ background: PURPLE, color: "#fff" }}>
+                    {addPrinter.isPending ? "Adding…" : "Add Printer"}
+                  </button>
+                  <button onClick={() => { setShowAdd(false); setNewPrinter({ ...emptyPrinter }); setNewPrinterCats([]); }}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: BORD, color: TEXT }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowAdd(true)}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold border-dashed border-2 transition-all"
+                style={{ borderColor: PURPLE + "66", color: PURPLE, background: "transparent" }}>
+                + Add Printer
+              </button>
+            )}
+
+            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: BORD }}>
+              <button onClick={() => save.mutate()} disabled={save.isPending}
+                className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+                style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>
+                {saved ? "Saved!" : save.isPending ? "Saving…" : "Save Categories"}
+              </button>
+              <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -301,6 +726,8 @@ function PrinterSetup({ onBack }: { onBack: () => void }) {
 
 // Sub-page: Delivery Partners
 function DeliveryPartners({ onBack }: { onBack: () => void }) {
+  const branchId = getBranchId();
+  const qc = useQueryClient();
   const [partners, setPartners] = useState([
     { name: "PickMe Food", apiKey: "", active: false },
     { name: "Uber Eats", apiKey: "", active: false },
@@ -308,6 +735,19 @@ function DeliveryPartners({ onBack }: { onBack: () => void }) {
   ]);
   const [newPartner, setNewPartner] = useState({ name: "", apiKey: "" });
   const [saved, setSaved] = useState(false);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const r = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (r?.deliveryPartners) { try { const v = JSON.parse(r.deliveryPartners); if (Array.isArray(v)) setPartners(v); } catch {} }
+  }, [settingsData]);
+  const save = useMutation({
+    mutationFn: async () => (await api.settings.$post({ json: { branchId, settings: { deliveryPartners: JSON.stringify(partners) } } })).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["settings", branchId] }); setSaved(true); setTimeout(() => { setSaved(false); onBack(); }, 1200); },
+  });
 
   function toggle(idx: number) {
     setPartners(prev => prev.map((p, i) => i === idx ? { ...p, active: !p.active } : p));
@@ -368,7 +808,7 @@ function DeliveryPartners({ onBack }: { onBack: () => void }) {
             <button onClick={addPartner} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>Add Partner</button>
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>{saved ? "Saved!" : "Save"}</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
             <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
           </div>
         </div>
@@ -379,7 +819,24 @@ function DeliveryPartners({ onBack }: { onBack: () => void }) {
 
 // Sub-page: Loyalty & Wallet
 function LoyaltyWallet({ onBack }: { onBack: () => void }) {
+  const branchId = getBranchId();
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ enabled: "Enable", minPoints: "40", pointRate: "0.5" });
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const r = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (r?.loyalty) { try { setForm(f => ({ ...f, ...JSON.parse(r.loyalty) })); } catch {} }
+  }, [settingsData]);
+  const save = useMutation({
+    mutationFn: async () => (await api.settings.$post({ json: { branchId, settings: { loyalty: JSON.stringify(form) } } })).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["settings", branchId] }); setSaved(true); setTimeout(() => { setSaved(false); onBack(); }, 1200); },
+  });
+
   function set(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm(f => ({ ...f, [key]: e.target.value }));
@@ -404,7 +861,7 @@ function LoyaltyWallet({ onBack }: { onBack: () => void }) {
             <Input type="number" step="0.1" value={form.pointRate} onChange={set("pointRate")} />
           </Field>
           <div className="flex gap-3 pt-2">
-            <button className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>Save</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
             <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
           </div>
         </div>
@@ -447,7 +904,6 @@ export default function SettingsPage() {
   const [location] = useLocation();
   const [subPage, setSubPage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [resetConfirm, setResetConfirm] = useState(false);
 
   const { data: usersData } = useQuery({
     queryKey: ["users", branchId],
@@ -461,13 +917,33 @@ export default function SettingsPage() {
   });
 
   const [form, setForm] = useState({ ...DEFAULTS });
+  const [invoiceLogo, setInvoiceLogo] = useState<string | null>(null);
+  const [invoiceLogoUploading, setInvoiceLogoUploading] = useState(false);
+  const invoiceLogoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const remote = (settingsData as any)?.settings as Record<string, string> | undefined;
     if (remote && Object.keys(remote).length > 0) {
       setForm(f => ({ ...f, ...remote }));
+      if (remote.invoiceLogo) setInvoiceLogo(remote.invoiceLogo);
     }
   }, [settingsData]);
+
+  async function handleInvoiceLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setInvoiceLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json() as any;
+      if (json.url) setInvoiceLogo(json.url);
+    } finally {
+      setInvoiceLogoUploading(false);
+    }
+  }
 
   const saveSettings = useMutation({
     mutationFn: async (data: Record<string, string>) =>
@@ -485,19 +961,15 @@ export default function SettingsPage() {
   }
 
   function handleSave() {
-    saveSettings.mutate(form as unknown as Record<string, string>);
+    const data: Record<string, string> = { ...(form as unknown as Record<string, string>) };
+    if (invoiceLogo) data.invoiceLogo = invoiceLogo;
+    saveSettings.mutate(data);
   }
 
   if (subPage === "outlet") return (
     <div className="flex h-screen overflow-hidden" style={{ background: BG }}>
       <Sidebar />
       <div className="flex-1 overflow-y-auto p-6"><OutletSetting onBack={() => setSubPage(null)} /></div>
-    </div>
-  );
-  if (subPage === "tax") return (
-    <div className="flex h-screen overflow-hidden" style={{ background: BG }}>
-      <Sidebar />
-      <div className="flex-1 overflow-y-auto p-6"><TaxSetting onBack={() => setSubPage(null)} /></div>
     </div>
   );
   if (subPage === "payment") return (
@@ -546,7 +1018,6 @@ export default function SettingsPage() {
         <div className="flex items-center gap-2 px-6 py-3 border-b shrink-0 overflow-x-auto" style={{ borderColor: BORD }}>
           {[
             { key: "outlet", label: "Outlet Setting" },
-            { key: "tax", label: "Tax Setting" },
             { key: "payment", label: "Payment Methods" },
             { key: "printers", label: "Printer Setup" },
             { key: "delivery", label: "Delivery Partners" },
@@ -578,14 +1049,27 @@ export default function SettingsPage() {
                 <Input value={form.restaurantShortName} onChange={set("restaurantShortName")} />
               </Field>
               <Field label="Invoice Logo">
-                <div className="flex gap-2 items-center">
-                  <label className="flex items-center gap-1 px-3 py-2 text-xs rounded-lg border cursor-pointer"
-                    style={{ borderColor: BORD, color: MUTED, background: BG }}>
-                    <input type="file" className="hidden" accept="image/*" />
-                    Choose file
-                  </label>
-                  <span className="text-xs" style={{ color: DIM }}>No file chosen</span>
-                  <button className="px-2 py-1 text-xs rounded font-semibold" style={{ background: PURPLE, color: "#fff" }}>Show</button>
+                <div className="flex gap-2 items-center flex-wrap">
+                  {invoiceLogo ? (
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border shrink-0" style={{ borderColor: BORD, background: BG }}>
+                      <img src={invoiceLogo} alt="Logo" className="w-full h-full object-contain" />
+                      <button onClick={() => setInvoiceLogo(null)}
+                        className="absolute top-0 right-0 bg-black/70 rounded p-0.5" style={{ color: "#fff" }}>
+                        <X size={8} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg border flex items-center justify-center shrink-0" style={{ borderColor: BORD, background: BG }}>
+                      <ImageIcon size={14} style={{ color: DIM }} />
+                    </div>
+                  )}
+                  <input ref={invoiceLogoRef} type="file" className="hidden" accept="image/*" onChange={handleInvoiceLogoUpload} />
+                  <button type="button" disabled={invoiceLogoUploading} onClick={() => invoiceLogoRef.current?.click()}
+                    className="flex items-center gap-1 px-3 py-2 text-xs rounded-lg border"
+                    style={{ borderColor: BORD, color: invoiceLogoUploading ? DIM : MUTED, background: BG }}>
+                    <Upload size={11} />
+                    {invoiceLogoUploading ? "Uploading…" : invoiceLogo ? "Change" : "Upload"}
+                  </button>
                 </div>
               </Field>
               <Field label="Website">
@@ -707,41 +1191,15 @@ export default function SettingsPage() {
               <div />
             </Row>
 
-            {/* Row 7 — Export + Reset */}
-            <div className="grid grid-cols-4 gap-4 mb-5 items-end">
+            {/* Row 7 — Export */}
+            <Row>
               <Field label="Export Daily Sales & Reset All Sales" help="Automatically export and reset daily sales data">
                 <Select value={form.exportDailySales} onChange={set("exportDailySales")}>
                   <option>Enable</option><option>Disable</option>
                 </Select>
               </Field>
-              <div className="col-span-2 flex items-end">
-                {resetConfirm ? (
-                  <div className="flex gap-2 items-center">
-                    <span className="text-xs" style={{ color: "#EF4444" }}>Are you sure? This cannot be undone.</span>
-                    <button
-                      className="px-4 py-2.5 rounded-lg text-sm font-semibold"
-                      style={{ background: "#EF4444", color: "#fff" }}
-                      onClick={() => setResetConfirm(false)}
-                    >Confirm Reset</button>
-                    <button
-                      className="px-4 py-2.5 rounded-lg text-sm font-semibold"
-                      style={{ background: BORD, color: MUTED }}
-                      onClick={() => setResetConfirm(false)}
-                    >Cancel</button>
-                  </div>
-                ) : (
-                  <button
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold"
-                    style={{ background: PURPLE, color: "#fff" }}
-                    onClick={() => setResetConfirm(true)}
-                  >
-                    <RotateCcw size={14} />
-                    Reset Transactional Data
-                  </button>
-                )}
-              </div>
-              <div />
-            </div>
+              <div /><div /><div />
+            </Row>
 
             {/* Invoice Footer */}
             <div className="mb-6">

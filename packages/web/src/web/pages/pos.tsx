@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
@@ -7,18 +7,22 @@ import {
   Search, Plus, Minus, Pencil, RotateCcw, FileText, Receipt, Printer,
   Ban, Edit3, Info, UtensilsCrossed, ShoppingBag, Truck, Grid3x3,
   RefreshCw, Camera, X, ChevronDown, Check, SlidersHorizontal,
-  LogOut, Globe, FolderOpen, Clock, Briefcase, Bell, Monitor, Menu, Scissors,
-  User,
+  LogOut, FolderOpen, Bell, Monitor, Scissors,
+  User, QrCode, BookOpen, Maximize, Home,
 } from "lucide-react";
+import { useLocation } from "wouter";
+import { clearUser } from "../lib/store";
+import { DraftSalesModal, RecentSalesModal, SelfOrderQRModal, RegistryModal, RefundModal } from "../components/pos-toolbar-modals";
 
 // ── Theme tokens ──────────────────────────────────────────────────────────────
 const BG    = "var(--color-bg)";
-const SURF  = "var(--color-surface)";
-const SURF2 = "var(--color-surface-2)";
-const BORD  = "var(--color-border)";
-const GOLD  = "var(--color-gold)";
-const TEXT  = "var(--color-text)";
-const MUTED = "var(--color-text-muted)";
+const SURF   = "var(--color-surface)";
+const SURF2  = "var(--color-surface-2)";
+const BORD   = "var(--color-border)";
+const GOLD   = "var(--color-gold)";
+const TEXT   = "var(--color-text)";
+const MUTED  = "var(--color-text-muted)";
+const PURPLE = "#7C3AED";
 const DIM   = "var(--color-text-dim)";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -31,6 +35,7 @@ type CartItem  = {
   qty: number;
   discount: number;
   printerId: number | null;
+  categoryId: number | null;
   modifiers: Modifier[];
 };
 
@@ -443,7 +448,7 @@ function OrderDetailsModal({ order, items, onClose, onCreateInvoice }: {
 const PAYMENT_METHODS = ["Cash", "Credit Card", "Check", "Bank Transfer", "Loyalty Point"] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number];
 
-interface PaymentEntry { method: PaymentMethod; amount: number }
+interface PaymentEntry { method: PaymentMethod; amount: number; ref?: string }
 
 function FinalizeModal({
   order,
@@ -463,26 +468,19 @@ function FinalizeModal({
 
   const [activeMethod,    setActiveMethod]    = useState<PaymentMethod>("Cash");
   const [givenAmount,     setGivenAmount]     = useState("");
-  const [changeAmount,    setChangeAmount]    = useState("");
   const [amount,          setAmount]          = useState("");
+  const [refNote,         setRefNote]         = useState(""); // for card/check/bank
   const [payments,        setPayments]        = useState<PaymentEntry[]>([]);
   const [showCartDetails, setShowCartDetails] = useState(false);
   const [sendSMS,         setSendSMS]         = useState(false);
   const [discountInput,   setDiscountInput]   = useState("");
+  const [phone,           setPhone]           = useState("");
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
   const due       = Math.max(0, payable - totalPaid);
+  const change    = activeMethod === "Cash" ? Math.max(0, (parseFloat(givenAmount) || 0) - (parseFloat(amount) || 0)) : 0;
 
-  // When given amount changes for Cash, auto-calc change
-  useEffect(() => {
-    const given = parseFloat(givenAmount) || 0;
-    const amt   = parseFloat(amount)      || 0;
-    if (activeMethod === "Cash" && given > 0 && amt > 0) {
-      setChangeAmount(Math.max(0, given - amt).toFixed(2));
-    } else {
-      setChangeAmount("");
-    }
-  }, [givenAmount, amount, activeMethod]);
+  const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
 
   function addQuickAmount(val: number) {
     setAmount(prev => {
@@ -494,12 +492,12 @@ function FinalizeModal({
   function handleAddPayment() {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return;
-    setPayments(prev => [...prev, { method: activeMethod, amount: amt }]);
-    setAmount(""); setGivenAmount(""); setChangeAmount("");
+    setPayments(prev => [...prev, { method: activeMethod, amount: amt, ref: refNote || undefined }]);
+    setAmount(""); setGivenAmount(""); setRefNote("");
   }
 
   function handleClear() {
-    setGivenAmount(""); setChangeAmount(""); setAmount(""); setPayments([]);
+    setGivenAmount(""); setAmount(""); setRefNote(""); setPayments([]);
   }
 
   function handleDiscount() {
@@ -513,12 +511,20 @@ function FinalizeModal({
     else onClose();
   }
 
-  const QUICK_AMOUNTS = [1, 2, 3, 5, 10, 50];
+  // method-specific placeholder / label
+  const methodConfig: Record<PaymentMethod, { showGiven: boolean; refLabel?: string; refPlaceholder?: string; amountLabel: string }> = {
+    "Cash":          { showGiven: true,  amountLabel: "Cash Amount" },
+    "Credit Card":   { showGiven: false, refLabel: "Card / Reference No.", refPlaceholder: "e.g. XXXX-1234", amountLabel: "Charge Amount" },
+    "Check":         { showGiven: false, refLabel: "Check No.",             refPlaceholder: "Check number",  amountLabel: "Check Amount" },
+    "Bank Transfer": { showGiven: false, refLabel: "Transfer Ref / Slip",   refPlaceholder: "Ref number",    amountLabel: "Transfer Amount" },
+    "Loyalty Point": { showGiven: false, refLabel: "Points to Redeem",      refPlaceholder: "e.g. 200",      amountLabel: "Equivalent Amount" },
+  };
+  const cfg = methodConfig[activeMethod];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
       <div className="rounded-xl border shadow-2xl overflow-hidden flex flex-col"
-        style={{ background: SURF, borderColor: BORD, width: 700, maxHeight: "90vh" }}>
+        style={{ background: SURF, borderColor: BORD, width: 720, maxHeight: "90vh" }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORD }}>
@@ -527,94 +533,96 @@ function FinalizeModal({
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden min-h-0">
 
           {/* Left — payment method sidebar */}
-          <div className="w-44 border-r flex flex-col" style={{ borderColor: BORD, background: SURF2 }}>
+          <div className="w-44 border-r flex flex-col shrink-0" style={{ borderColor: BORD, background: BG }}>
             {PAYMENT_METHODS.map(m => (
               <button key={m}
-                onClick={() => setActiveMethod(m)}
-                className="px-4 py-3 text-left text-sm border-b transition-colors"
+                onClick={() => { setActiveMethod(m); setAmount(""); setGivenAmount(""); setRefNote(""); }}
+                className="px-4 py-3.5 text-left text-sm border-b transition-colors"
                 style={{
                   borderColor: BORD,
-                  background: activeMethod === m ? "#E5E7EB" : "transparent",
-                  color: activeMethod === m ? "#111827" : TEXT,
+                  background: activeMethod === m ? PURPLE : "transparent",
+                  color: activeMethod === m ? "#fff" : MUTED,
                   fontWeight: activeMethod === m ? 600 : 400,
                 }}>
                 {m}
               </button>
             ))}
-            <div className="flex-1" />
-            <div className="p-3 border-t" style={{ borderColor: BORD }}>
-              <button className="w-full py-2 rounded text-xs font-semibold border"
-                style={{ borderColor: BORD, color: MUTED }}>
-                Change Currency
-              </button>
-            </div>
           </div>
 
           {/* Right — payment entry + summary */}
           <div className="flex-1 flex flex-col p-4 gap-3 overflow-y-auto">
 
             {/* Active method title */}
-            <div className="font-semibold text-sm" style={{ color: TEXT }}>{activeMethod}</div>
+            <div className="font-semibold text-sm" style={{ color: GOLD }}>{activeMethod}</div>
 
-            {/* Input row */}
-            <div className="grid grid-cols-4 gap-2">
+            {/* Input row — dynamic per method */}
+            <div className="grid gap-2" style={{ gridTemplateColumns: cfg.showGiven ? "1fr 1fr 1fr auto" : cfg.refLabel ? "1fr 1fr auto" : "1fr auto" }}>
+              {cfg.showGiven && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs" style={{ color: MUTED }}>Given Amount</label>
+                  <input value={givenAmount} onChange={e => setGivenAmount(e.target.value)}
+                    placeholder="0.00" type="number" min="0"
+                    className="border rounded px-2 py-1.5 text-xs outline-none"
+                    style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                </div>
+              )}
+              {cfg.refLabel && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs" style={{ color: MUTED }}>{cfg.refLabel}</label>
+                  <input value={refNote} onChange={e => setRefNote(e.target.value)}
+                    placeholder={cfg.refPlaceholder}
+                    className="border rounded px-2 py-1.5 text-xs outline-none"
+                    style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                </div>
+              )}
               <div className="flex flex-col gap-1">
-                <label className="text-xs" style={{ color: MUTED }}>Given Amount</label>
-                <input
-                  value={givenAmount}
-                  onChange={e => setGivenAmount(e.target.value)}
-                  placeholder="Given Amount"
+                <label className="text-xs" style={{ color: MUTED }}>{cfg.amountLabel}</label>
+                <input value={amount} onChange={e => setAmount(e.target.value)}
+                  placeholder="0.00" type="number" min="0"
                   className="border rounded px-2 py-1.5 text-xs outline-none"
-                  style={{ borderColor: BORD, background: BG, color: TEXT }}
-                  type="number" min="0" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs" style={{ color: MUTED }}>Change Amount</label>
-                <input
-                  value={changeAmount}
-                  readOnly
-                  placeholder="Change Amount"
-                  className="border rounded px-2 py-1.5 text-xs outline-none"
-                  style={{ borderColor: BORD, background: "#F3F4F6", color: TEXT }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs" style={{ color: MUTED }}>Amount</label>
-                <input
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                  placeholder="Amount"
-                  className="border rounded px-2 py-1.5 text-xs outline-none"
-                  style={{ borderColor: BORD, background: BG, color: TEXT }}
-                  type="number" min="0" />
+                  style={{ borderColor: BORD, background: BG, color: TEXT }} />
               </div>
               <div className="flex flex-col justify-end">
                 <button onClick={handleAddPayment}
-                  className="py-1.5 rounded text-xs font-semibold border"
-                  style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                  className="px-4 py-1.5 rounded text-xs font-semibold"
+                  style={{ background: PURPLE, color: "#fff" }}>
                   Add
                 </button>
               </div>
             </div>
 
-            {/* Middle row: payments list + right controls */}
+            {/* Change for cash */}
+            {activeMethod === "Cash" && (parseFloat(givenAmount) || 0) > 0 && (
+              <div className="text-xs px-3 py-2 rounded border" style={{ borderColor: BORD, background: BG }}>
+                <span style={{ color: MUTED }}>Change: </span>
+                <span className="font-bold font-mono" style={{ color: "#22C55E" }}>LKR {change.toFixed(2)}</span>
+              </div>
+            )}
+
+            {/* Middle: payments list + right controls */}
             <div className="flex gap-3">
 
-              {/* Payments added list */}
-              <div className="flex-1 rounded border flex flex-col items-center justify-center min-h-[100px] text-xs"
-                style={{ borderColor: BORD, color: MUTED }}>
+              {/* Payments list */}
+              <div className="flex-1 rounded border min-h-[120px]"
+                style={{ borderColor: BORD }}>
                 {payments.length === 0 ? (
-                  <span>Your added payments will be shown here</span>
+                  <div className="flex items-center justify-center h-full min-h-[120px] text-xs" style={{ color: DIM }}>
+                    Your added payments will be shown here
+                  </div>
                 ) : (
                   <div className="w-full">
                     {payments.map((p, i) => (
-                      <div key={i} className="flex justify-between items-center px-3 py-1.5 border-b text-xs"
+                      <div key={i} className="flex justify-between items-center px-3 py-2 border-b text-xs"
                         style={{ borderColor: BORD }}>
-                        <span style={{ color: TEXT }}>{p.method}</span>
+                        <div>
+                          <span style={{ color: TEXT }}>{p.method}</span>
+                          {p.ref && <span className="ml-2 text-xs" style={{ color: DIM }}>#{p.ref}</span>}
+                        </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono" style={{ color: GOLD }}>{p.amount.toFixed(2)}</span>
+                          <span className="font-mono font-bold" style={{ color: GOLD }}>{p.amount.toFixed(2)}</span>
                           <button onClick={() => setPayments(prev => prev.filter((_, j) => j !== i))}
                             style={{ color: MUTED }}><X size={11} /></button>
                         </div>
@@ -625,27 +633,22 @@ function FinalizeModal({
               </div>
 
               {/* Right controls */}
-              <div className="flex flex-col gap-2 w-36">
+              <div className="flex flex-col gap-2 w-36 shrink-0">
 
-                {/* Discount row */}
+                {/* Discount */}
                 <div className="flex gap-1">
-                  <input
-                    value={discountInput}
-                    onChange={e => setDiscountInput(e.target.value)}
-                    placeholder="Discount"
-                    type="number" min="0"
+                  <input value={discountInput} onChange={e => setDiscountInput(e.target.value)}
+                    placeholder="Discount" type="number" min="0"
                     className="flex-1 border rounded px-2 py-1.5 text-xs outline-none w-0"
                     style={{ borderColor: BORD, background: BG, color: TEXT }}
                     onKeyDown={e => e.key === "Enter" && handleDiscount()} />
                   <button onClick={handleDiscount}
-                    className="px-2 py-1.5 rounded border text-xs"
-                    style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
-                    Disc
-                  </button>
+                    className="px-2 py-1.5 rounded text-xs font-semibold"
+                    style={{ background: BORD, color: MUTED }}>✓</button>
                 </div>
 
                 {/* Totals */}
-                <div className="rounded border p-2 space-y-1 text-xs" style={{ borderColor: BORD }}>
+                <div className="rounded border p-2 space-y-1 text-xs" style={{ borderColor: BORD, background: BG }}>
                   <div className="flex justify-between">
                     <span style={{ color: MUTED }}>Payable</span>
                     <span className="font-bold font-mono" style={{ color: TEXT }}>LKR{payable.toFixed(2)}</span>
@@ -662,47 +665,53 @@ function FinalizeModal({
                   </div>
                 </div>
 
-                {/* Quick amount buttons */}
+                {/* Quick amounts */}
                 <div className="grid grid-cols-2 gap-1">
                   {QUICK_AMOUNTS.map(v => (
                     <button key={v} onClick={() => addQuickAmount(v)}
-                      className="py-1.5 rounded border text-xs font-mono"
-                      style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                      className="py-1.5 rounded text-xs font-mono font-semibold border"
+                      style={{ borderColor: BORD, background: BORD, color: TEXT }}>
                       {v}
                     </button>
                   ))}
                 </div>
 
-                {/* Extra actions */}
-                <div className="flex items-center gap-1 text-xs" style={{ color: MUTED }}>
+                {/* Send SMS */}
+                <div className="flex items-center gap-1.5 text-xs" style={{ color: MUTED }}>
                   <input type="checkbox" id="sms-chk" checked={sendSMS}
                     onChange={e => setSendSMS(e.target.checked)} />
-                  <label htmlFor="sms-chk">Send SMS</label>
+                  <label htmlFor="sms-chk" className="cursor-pointer">Send SMS</label>
                 </div>
+                {sendSMS && (
+                  <input value={phone} onChange={e => setPhone(e.target.value)}
+                    placeholder="Phone number"
+                    className="border rounded px-2 py-1.5 text-xs outline-none"
+                    style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                )}
 
+                {/* Cart details + Clear */}
                 <button onClick={() => setShowCartDetails(v => !v)}
-                  className="py-1.5 rounded border text-xs"
-                  style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
-                  Cart Details
+                  className="py-1.5 rounded border text-xs font-medium"
+                  style={{ borderColor: BORD, background: BORD, color: TEXT }}>
+                  {showCartDetails ? "Hide Details" : "Cart Details"}
                 </button>
-
                 <button onClick={handleClear}
-                  className="py-1.5 rounded border text-xs"
-                  style={{ borderColor: BORD, background: "#F9FAFB", color: TEXT }}>
+                  className="py-1.5 rounded border text-xs font-medium"
+                  style={{ borderColor: "#EF4444", color: "#EF4444", background: "transparent" }}>
                   Clear
                 </button>
               </div>
             </div>
 
-            {/* Cart details toggle */}
+            {/* Cart details */}
             {showCartDetails && (
               <div className="rounded border overflow-hidden" style={{ borderColor: BORD }}>
-                <div className="px-3 py-2 text-xs font-semibold border-b" style={{ borderColor: BORD, color: TEXT }}>
-                  Order {order.orderNumber} — Cart Details
+                <div className="px-3 py-2 text-xs font-semibold border-b" style={{ borderColor: BORD, color: TEXT, background: BG }}>
+                  Order #{order.orderNumber} — Cart
                 </div>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b" style={{ borderColor: BORD }}>
+                    <tr className="border-b" style={{ borderColor: BORD, background: BG }}>
                       <th className="text-left px-3 py-1.5" style={{ color: DIM }}>Item</th>
                       <th className="text-center px-3 py-1.5" style={{ color: DIM }}>Qty</th>
                       <th className="text-right px-3 py-1.5" style={{ color: DIM }}>Total</th>
@@ -720,7 +729,7 @@ function FinalizeModal({
                     ))}
                   </tbody>
                 </table>
-                <div className="px-3 py-2 border-t space-y-0.5 text-xs" style={{ borderColor: BORD }}>
+                <div className="px-3 py-2 border-t text-xs space-y-0.5" style={{ borderColor: BORD, background: BG }}>
                   <div className="flex justify-between">
                     <span style={{ color: MUTED }}>Sub Total</span>
                     <span style={{ color: TEXT }}>{subtotal.toFixed(2)}</span>
@@ -728,7 +737,7 @@ function FinalizeModal({
                   {(itemDiscount + extraDiscount) > 0 && (
                     <div className="flex justify-between">
                       <span style={{ color: MUTED }}>Discount</span>
-                      <span style={{ color: TEXT }}>-{(itemDiscount + extraDiscount).toFixed(2)}</span>
+                      <span style={{ color: "#EF4444" }}>-{(itemDiscount + extraDiscount).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold border-t pt-1" style={{ borderColor: BORD }}>
@@ -761,10 +770,255 @@ function FinalizeModal({
   );
 }
 
+// ── Shared print helper ───────────────────────────────────────────────────────
+function triggerPrint(printableId: string) {
+  const styleId = "idine-print-style";
+  if (!document.getElementById(styleId)) {
+    const s = document.createElement("style");
+    s.id = styleId;
+    s.innerHTML = `@media print {
+      body > * { display: none !important; }
+      #idine-invoice-print-root { display: block !important; position: static !important; background: #fff !important; }
+    }`;
+    document.head.appendChild(s);
+  }
+  let root = document.getElementById("idine-invoice-print-root");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "idine-invoice-print-root";
+    root.style.display = "none";
+    document.body.appendChild(root);
+  }
+  const src = document.getElementById(printableId);
+  root.innerHTML = src ? src.innerHTML : "";
+  root.style.display = "block";
+  window.print();
+  root.style.display = "none";
+}
+
+// ── Shared receipt header ─────────────────────────────────────────────────────
+function ReceiptHeader({ settings, label }: { settings: Record<string, string>; label: "INVOICE" | "BILL" }) {
+  const headerImg = settings?.invoiceHeader;
+  const name      = settings?.restaurantName || settings?.outletName || "iDine";
+  const phone     = settings?.outletPhone || "";
+  const email     = settings?.outletEmail || "";
+  const address   = settings?.outletAddress || "";
+
+  if (headerImg) {
+    return (
+      <div style={{ textAlign: "center", marginBottom: 12 }}>
+        <img src={headerImg} alt="Header" style={{ maxWidth: "100%", maxHeight: 90, objectFit: "contain" }} />
+        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#333" }}>{label}</div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ textAlign: "center", marginBottom: 12 }}>
+      <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 1, color: "#111" }}>{name}</div>
+      {address && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{address}</div>}
+      {phone && <div style={{ fontSize: 11, color: "#555" }}>Tel: {phone}</div>}
+      {email && <div style={{ fontSize: 11, color: "#555" }}>{email}</div>}
+      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#333" }}>{label}</div>
+    </div>
+  );
+}
+
+// ── Invoice / Bill Overlay ────────────────────────────────────────────────────
+function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
+  orderId: number; onClose: () => void; mode?: "invoice" | "bill";
+}) {
+  const branchId = getBranchId();
+  const { data, isLoading } = useQuery({
+    queryKey: ["invoice-overlay", orderId],
+    queryFn: async () => (await api.orders[":id"].$get({ param: { id: String(orderId) } })).json() as any,
+  });
+  const { data: settingsRaw } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json() as any,
+  });
+  const settings: Record<string, string> = (settingsRaw as any)?.settings || {};
+  const order = (data as any)?.order;
+  const items: any[] = (data as any)?.items || [];
+  const money = (n: number) => `Rs ${Number(n || 0).toFixed(2)}`;
+  const isInvoice = mode === "invoice";
+  const label = isInvoice ? "INVOICE" : "BILL";
+  const printId = "idine-invoice-printable";
+  const footerText = settings?.invoiceFooter || "Thank you for visiting us!";
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+  const subtotal = items.reduce((s, it) => s + Number(it.total || 0), 0);
+  const discount = Number(order?.discount || 0);
+  const tax      = Number(order?.tax || 0);
+  const total    = Number(order?.total || subtotal);
+
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
+      <div className="rounded-xl shadow-2xl flex flex-col" style={{ background: "#fff", width: 420, maxHeight: "92vh", color: "#111" }}>
+
+        {/* ── Modal header bar ── */}
+        <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-xl"
+          style={{ borderColor: "#e5e7eb", background: "#f9fafb" }}>
+          <div className="flex items-center gap-2">
+            <Printer size={14} style={{ color: "#6b7280" }} />
+            <span className="text-sm font-semibold" style={{ color: "#111" }}>{label} Preview</span>
+          </div>
+          <button onClick={onClose} style={{ color: "#9ca3af" }}><X size={16} /></button>
+        </div>
+
+        {/* ── Scrollable receipt ── */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: "0 0 0 0" }}>
+          {isLoading
+            ? <div className="flex justify-center items-center py-16 text-sm" style={{ color: "#9ca3af" }}>Loading…</div>
+            : !order
+              ? <div className="text-center py-16 text-sm" style={{ color: "#ef4444" }}>Failed to load order</div>
+              : (
+                <div id={printId} style={{
+                  fontFamily: "'Courier New', Courier, monospace",
+                  background: "#fff",
+                  color: "#111",
+                  padding: "20px 24px 16px",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}>
+                  {/* Restaurant header */}
+                  <ReceiptHeader settings={settings} label={label} />
+
+                  {/* Divider */}
+                  <div style={{ borderTop: "1px dashed #bbb", margin: "10px 0" }} />
+
+                  {/* Order meta */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
+                    <span>Order #: <strong style={{ color: "#111" }}>{order.orderNumber}</strong></span>
+                    <span>{dateStr}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
+                    <span>Type: <strong style={{ color: "#111", textTransform: "capitalize" }}>{order.type?.replace("-", " ")}</strong></span>
+                    <span>{timeStr}</span>
+                  </div>
+                  {order.customerName && order.customerName !== "Walk-in Customer" && (
+                    <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>
+                      Customer: <strong style={{ color: "#111" }}>{order.customerName}</strong>
+                    </div>
+                  )}
+                  {order.tableId && (
+                    <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>
+                      Table: <strong style={{ color: "#111" }}>{order.tableId}</strong>
+                    </div>
+                  )}
+
+                  {/* Divider */}
+                  <div style={{ borderTop: "1px dashed #bbb", margin: "10px 0" }} />
+
+                  {/* Items header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    <span style={{ flex: 1 }}>Item</span>
+                    <span style={{ width: 36, textAlign: "center" }}>Qty</span>
+                    <span style={{ width: 72, textAlign: "right" }}>Price</span>
+                    <span style={{ width: 80, textAlign: "right" }}>Amount</span>
+                  </div>
+
+                  {/* Items */}
+                  {items.map((it: any, i: number) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3, paddingBottom: 3, borderBottom: "1px dotted #e5e7eb" }}>
+                      <span style={{ flex: 1, paddingRight: 4 }}>{it.name}</span>
+                      <span style={{ width: 36, textAlign: "center", color: "#555" }}>{it.qty}</span>
+                      <span style={{ width: 72, textAlign: "right", color: "#555" }}>{money(it.price)}</span>
+                      <span style={{ width: 80, textAlign: "right", fontWeight: 500 }}>{money(it.total)}</span>
+                    </div>
+                  ))}
+
+                  {/* Totals block */}
+                  <div style={{ borderTop: "1px dashed #bbb", marginTop: 8, paddingTop: 8 }}>
+                    {subtotal !== total && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                        <span>Subtotal</span>
+                        <span>{money(subtotal)}</span>
+                      </div>
+                    )}
+                    {discount > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#16a34a", marginBottom: 3 }}>
+                        <span>Discount</span>
+                        <span>- {money(discount)}</span>
+                      </div>
+                    )}
+                    {tax > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                        <span>Tax</span>
+                        <span>{money(tax)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, borderTop: "2px solid #111", marginTop: 6, paddingTop: 6 }}>
+                      <span>TOTAL</span>
+                      <span>{money(total)}</span>
+                    </div>
+                  </div>
+
+                  {/* Status badge */}
+                  <div style={{ textAlign: "center", margin: "10px 0 4px" }}>
+                    <span style={{
+                      display: "inline-block",
+                      padding: "2px 12px",
+                      borderRadius: 20,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      background: isInvoice ? "#dcfce7" : "#fef9c3",
+                      color: isInvoice ? "#166534" : "#854d0e",
+                      border: `1px solid ${isInvoice ? "#86efac" : "#fde047"}`,
+                    }}>
+                      {isInvoice ? "✓ PAID" : "PENDING PAYMENT"}
+                    </span>
+                  </div>
+
+                  {/* Footer */}
+                  <div style={{ borderTop: "1px dashed #bbb", marginTop: 12, paddingTop: 10, textAlign: "center" }}>
+                    {footerText.split("\n").map((line, i) => (
+                      <div key={i} style={{ fontSize: 11, color: i === 0 ? "#555" : "#9ca3af", marginBottom: 2 }}>{line}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+        </div>
+
+        {/* ── Action bar ── */}
+        {order && (
+          <div className="flex gap-2 px-5 py-3 border-t rounded-b-xl" style={{ borderColor: "#e5e7eb", background: "#f9fafb" }}>
+            <button onClick={onClose}
+              className="flex-1 py-2 rounded-lg text-xs font-medium border"
+              style={{ color: "#6b7280", borderColor: "#d1d5db", background: "#fff" }}>
+              Close
+            </button>
+            <button onClick={() => triggerPrint(printId)}
+              className="flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5"
+              style={{ background: "#111", color: "#fff" }}>
+              <Printer size={13} /> Print {label}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function POSPage() {
   const branchId = getBranchId();
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
+
+  // ── Toolbar feature state
+  const [showDrafts,         setShowDrafts]         = useState(false);
+  const [showRecentSales,    setShowRecentSales]    = useState(false);
+  const [showRefund,         setShowRefund]         = useState(false);
+  const [invoicePreviewId,   setInvoicePreviewId]   = useState<number | null>(null);
+  const [invoicePreviewMode, setInvoicePreviewMode] = useState<"invoice" | "bill">("invoice");
+  const [showSelfOrderQR,    setShowSelfOrderQR]    = useState(false);
+  const [showRegistry,       setShowRegistry]       = useState(false);
+  const [showKotMenu,        setShowKotMenu]        = useState(false);
 
   // ── State
   const [selectedOrderId,    setSelectedOrderId]    = useState<number | null>(null);
@@ -797,6 +1051,11 @@ export default function POSPage() {
   const [cancelConfirmId,    setCancelConfirmId]    = useState<number | null>(null);
   const [modifyOrderId,      setModifyOrderId]      = useState<number | null>(null);
 
+  // Quick Add Item modal
+  const [showQuickAddItem,   setShowQuickAddItem]   = useState(false);
+  const [qaForm,             setQaForm]             = useState({ name: "", code: "", categoryId: "" as string | number, priceDineIn: "", priceTakeaway: "", priceDelivery: "", isVeg: false, isBeverage: false });
+  const [qaError,            setQaError]            = useState<string | null>(null);
+
   // ── Queries
   const { data: ordersData, isLoading: ordersLoading } = useQuery({
     queryKey: ["orders", branchId],
@@ -824,6 +1083,27 @@ export default function POSPage() {
     queryFn: async () => (await api.users.$get({ query: { branchId: String(branchId) } })).json(),
   });
   const waiters = ((usersData as any)?.users || []).filter((u: any) => u.role === "waiter" || u.role === "manager");
+
+  // Printer setup settings — for category→printer routing
+  const { data: printerSettingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+    staleTime: 30_000,
+  });
+  // categoryPrinterMap: { [categoryId]: printerId }
+  const categoryPrinterMap = useMemo<Record<number, number>>(() => {
+    try {
+      const raw = (printerSettingsData as any)?.settings?.printerSetup;
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      const pc: Record<string, number[]> = parsed.printerCategories || {};
+      const map: Record<number, number> = {};
+      Object.entries(pc).forEach(([pid, cats]) => {
+        cats.forEach((cid: number) => { map[cid] = parseInt(pid); });
+      });
+      return map;
+    } catch { return {}; }
+  }, [printerSettingsData]);
 
   // Fetch details for modals when an order is selected
   const { data: orderDetailData } = useQuery({
@@ -861,32 +1141,41 @@ export default function POSPage() {
       })).json();
       const orderId = (order as any).order.id;
 
-      await (await api["order-items"].bulk.$post({
-        json: {
-          items: cartItems.map(i => ({
-            orderId, menuItemId: i.menuItemId, name: i.name, price: i.price,
-            qty: i.qty, printerId: i.printerId,
-            total: i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty,
-            modifiers: i.modifiers.length ? JSON.stringify(i.modifiers.map(m => m.name)) : null,
-          })),
-        },
-      })).json();
+      try {
+        await (await api["order-items"].bulk.$post({
+          json: {
+            items: cartItems.map(i => ({
+              orderId, menuItemId: i.menuItemId, name: i.name, price: i.price,
+              qty: i.qty, printerId: i.printerId,
+              total: i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty,
+              modifiers: i.modifiers.length ? JSON.stringify(i.modifiers.map(m => m.name)) : null,
+            })),
+          },
+        })).json();
+      } catch (e) {
+        console.error("[placeOrder] order-items bulk failed:", e);
+      }
 
       if (apiStatus !== "draft") {
-        const printerGroups = cartItems.reduce((acc, item) => {
-          if (item.printerId) { (acc[item.printerId] ||= []).push(item); }
-          return acc;
-        }, {} as Record<number, CartItem[]>);
-        const jobs = Object.entries(printerGroups).map(([pid, items]) => ({
-          branchId, orderId, printerId: parseInt(pid),
-          idempotencyKey: `${orderId}-${pid}-kot-1`, type: "kot", status: "pending",
-          payload: JSON.stringify({
-            orderId, orderNumber: (order as any).order.orderNumber,
-            type: orderType, tableId: selectedTableId,
-            items: items.map(i => ({ ...i, modifiers: i.modifiers.map(m => m.name) })),
-          }),
-        }));
-        if (jobs.length > 0) await (await api["print-jobs"].batch.$post({ json: { jobs } })).json();
+        try {
+          const printerGroups = cartItems.reduce((acc, item) => {
+            const pid = item.printerId ?? (item.categoryId != null ? categoryPrinterMap[item.categoryId] : null) ?? null;
+            if (pid) { (acc[pid] ||= []).push(item); }
+            return acc;
+          }, {} as Record<number, CartItem[]>);
+          const jobs = Object.entries(printerGroups).map(([pid, items]) => ({
+            branchId, orderId, printerId: parseInt(pid),
+            idempotencyKey: `${orderId}-${pid}-kot-1`, type: "kot", status: "pending",
+            payload: JSON.stringify({
+              orderId, orderNumber: (order as any).order.orderNumber,
+              type: orderType, tableId: selectedTableId,
+              items: items.map(i => ({ ...i, modifiers: i.modifiers.map(m => m.name) })),
+            }),
+          }));
+          if (jobs.length > 0) await (await api["print-jobs"].batch.$post({ json: { jobs } })).json();
+        } catch (e) {
+          console.error("[placeOrder] print-jobs failed:", e);
+        }
       }
       return order;
     },
@@ -914,22 +1203,37 @@ export default function POSPage() {
   });
 
   const reprintKOT = useMutation({
-    mutationFn: async (orderId: number) => {
+    mutationFn: async ({ orderId, mode }: { orderId: number; mode: "all" | "new" }) => {
       const res = await (await api.orders[":id"].$get({ param: { id: String(orderId) } })).json() as any;
       const { order, items } = res;
-      const printerGroups = (items || []).reduce((acc: any, item: any) => {
-        if (item.printerId) { (acc[item.printerId] ||= []).push(item); }
+      const ts = (v: any) => { const t = v ?? 0; return t < 1e12 ? t * 1000 : t; };
+      let printItems = items || [];
+      if (mode === "new") {
+        const orderTs = ts(order.createdAt);
+        // "New items" = items added after the initial order creation (later edit batch)
+        printItems = (items || []).filter((it: any) => ts(it.createdAt) - orderTs > 5000);
+        // Fallback: if none flagged by time, use the latest-created cluster
+        if (printItems.length === 0 && (items || []).length) {
+          const maxTs = Math.max(...items.map((it: any) => ts(it.createdAt)));
+          printItems = items.filter((it: any) => maxTs - ts(it.createdAt) < 3000 && ts(it.createdAt) - orderTs > 1000);
+        }
+        if (printItems.length === 0) { showToast("No new items to print"); return; }
+      }
+      const printerGroups = printItems.reduce((acc: any, item: any) => {
+        const pid = item.printerId ?? (item.categoryId != null ? categoryPrinterMap[item.categoryId] : null) ?? null;
+        if (pid) { (acc[pid] ||= []).push(item); }
         return acc;
       }, {});
-      const ts = Date.now();
+      const now = Date.now();
       const jobs = Object.entries(printerGroups).map(([pid, pitems]: any) => ({
         branchId, orderId, printerId: parseInt(pid),
-        idempotencyKey: `${orderId}-${pid}-kot-reprint-${ts}`, type: "reprint", status: "pending",
-        payload: JSON.stringify({ orderId, orderNumber: order.orderNumber, type: order.type, items: pitems }),
+        idempotencyKey: `${orderId}-${pid}-kot-reprint-${mode}-${now}`, type: "reprint", status: "pending",
+        payload: JSON.stringify({ orderId, orderNumber: order.orderNumber, type: order.type, mode, items: pitems }),
       }));
       if (jobs.length > 0) await (await api["print-jobs"].batch.$post({ json: { jobs } })).json();
+      return mode;
     },
-    onSuccess: () => showToast("KOT reprint queued"),
+    onSuccess: (mode) => { if (mode) showToast(mode === "new" ? "New items KOT queued" : "Full KOT reprint queued"); },
   });
 
   // Load order into cart for modification
@@ -944,7 +1248,7 @@ export default function POSPage() {
     setSelectedTableId(order.tableId ?? null);
     setCartItems((items || []).map((i: any) => ({
       menuItemId: i.menuItemId, name: i.name, price: i.price, qty: i.qty,
-      discount: i.discount ?? 0, printerId: i.printerId ?? null, modifiers: [],
+      discount: i.discount ?? 0, printerId: i.printerId ?? null, categoryId: i.categoryId ?? null, modifiers: [],
     })));
     setModifyOrderId(orderId);
     showToast("Order loaded for editing");
@@ -973,7 +1277,7 @@ export default function POSPage() {
     setCartItems(prev => {
       const ex = prev.find(i => i.menuItemId === cartKey);
       if (ex) return prev.map(i => i.menuItemId === cartKey ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { menuItemId: cartKey, name, price: priceByType, qty: 1, discount: 0, printerId: item.printerId ?? null, modifiers: [] }];
+      return [...prev, { menuItemId: cartKey, name, price: priceByType, qty: 1, discount: 0, printerId: item.printerId ?? null, categoryId: item.categoryId ?? null, modifiers: [] }];
     });
   }
   function changeQty(id: number, delta: number) {
@@ -986,6 +1290,37 @@ export default function POSPage() {
   function setItemModifiers(menuItemId: number, mods: Modifier[]) {
     setCartItems(prev => prev.map(i => i.menuItemId === menuItemId ? { ...i, modifiers: mods } : i));
   }
+
+  // Quick Add Item mutation
+  const quickAddItem = useMutation({
+    mutationFn: async () => {
+      const price = parseFloat(qaForm.priceDineIn);
+      if (!qaForm.name.trim()) throw new Error("Name is required");
+      if (isNaN(price) || price < 0) throw new Error("Invalid price");
+      return (await api["menu-items"].$post({
+        json: {
+          branchId,
+          name: qaForm.name.trim(),
+          code: qaForm.code.trim() || null,
+          categoryId: qaForm.categoryId ? Number(qaForm.categoryId) : null,
+          priceDineIn: price,
+          priceTakeaway: qaForm.priceTakeaway ? parseFloat(qaForm.priceTakeaway) : price,
+          priceDelivery: qaForm.priceDelivery ? parseFloat(qaForm.priceDelivery) : price,
+          isVeg: qaForm.isVeg,
+          isBeverage: qaForm.isBeverage,
+          isAvailable: true,
+        },
+      })).json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["menu-items", branchId] });
+      setShowQuickAddItem(false);
+      setQaForm({ name: "", code: "", categoryId: "", priceDineIn: "", priceTakeaway: "", priceDelivery: "", isVeg: false, isBeverage: false });
+      setQaError(null);
+      showToast("Item added!");
+    },
+    onError: (e: any) => setQaError(e?.message || "Failed to add item"),
+  });
 
   // ── Derived data
   const orders      = (ordersData as any)?.orders || [];
@@ -1000,7 +1335,8 @@ export default function POSPage() {
   });
   const tables      = (tablesData as any)?.tables || [];
   const runningOrders = orders.filter((o: any) =>
-    o.status !== "completed" && o.status !== "cancelled"
+    o.status !== "completed" && o.status !== "cancelled" &&
+    o.status !== "refunded" && o.status !== "partially_refunded"
   );
   const filteredOrders = runningOrders.filter((o: any) =>
     !orderSearch ||
@@ -1020,8 +1356,93 @@ export default function POSPage() {
   }
   const total = cartItems.reduce((s, i) => s + itemTotal(i), 0);
 
+  // ── Customer Display: mirror live cart to localStorage for the popup window
+  const customerWinRef = useRef<Window | null>(null);
+
+  useEffect(() => {
+    const payload = {
+      items: cartItems.map(i => ({
+        name: i.name, qty: i.qty, price: i.price, lineTotal: itemTotal(i),
+      })),
+      total, customerName, orderType, ts: Date.now(),
+    };
+    try { localStorage.setItem("idine_customer_display", JSON.stringify(payload)); } catch {}
+  }, [cartItems, total, customerName, orderType]);
+
+  function openCustomerDisplay() {
+    const w = window.open("/customer-display", "idineCustomerDisplay",
+      "width=520,height=760,menubar=no,toolbar=no,location=no,status=no");
+    customerWinRef.current = w;
+    if (w) showToast("Customer display opened");
+    else showToast("Popup blocked — allow popups for this site");
+  }
+
+  // ── Kitchen "done cooking" notification
+  const [kitchenSeen, setKitchenSeen] = useState<Set<number>>(new Set());
+  const [kitchenReady, setKitchenReady] = useState<any[]>([]);
+  const chimeRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const ready = orders.filter((o: any) => o.status === "ready");
+    setKitchenReady(ready);
+    const fresh = ready.filter((o: any) => !kitchenSeen.has(o.id));
+    if (fresh.length > 0) {
+      // chime
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "sine"; osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.start(); osc.stop(ctx.currentTime + 0.5);
+      } catch {}
+      showToast(`Kitchen ready: ${fresh.map((o: any) => o.orderNumber).join(", ")}`);
+      setKitchenSeen(prev => { const n = new Set(prev); fresh.forEach((o: any) => n.add(o.id)); return n; });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders]);
+
+  // ── Logout
+  function handleLogout() { clearUser(); navigate("/"); }
+
+  // ── Fullscreen toggle
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => showToast("Fullscreen not allowed"));
+    else document.exitFullscreen();
+  }
+
+  // ── Print last invoice — open printable preview window
+  function printLastInvoice() {
+    const PRINTABLE = ["completed", "paid", "served", "confirmed"];
+    const printable = orders
+      .filter((o: any) => PRINTABLE.includes(o.status))
+      .sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    const last = printable[0];
+    if (!last) { showToast("No sale to print"); return; }
+    openInvoicePreview(last.id);
+  }
+  function openInvoicePreview(orderId: number, mode: "invoice" | "bill" = "invoice") {
+    setInvoicePreviewMode(mode);
+    setInvoicePreviewId(orderId);
+  }
+
+  // ── Toolbar config (final order)
+  const TOOLBAR = [
+    { icon: Home,      title: "Home",              onClick: () => navigate("/home") },
+    { icon: LogOut,    title: "Logout",            onClick: handleLogout },
+    { icon: FolderOpen,title: "Draft Sale",        onClick: () => setShowDrafts(true) },
+    { icon: Printer,   title: "Print Last Invoice",onClick: printLastInvoice },
+    { icon: Receipt,   title: "Recent Sales",      onClick: () => setShowRecentSales(true) },
+    { icon: RotateCcw, title: "Refund",            onClick: () => setShowRefund(true) },
+    { icon: QrCode,    title: "Self / Online Orders", onClick: () => setShowSelfOrderQR(true) },
+    { icon: Bell,      title: "Kitchen Ready",     onClick: () => { if (kitchenReady.length) showToast(`Ready: ${kitchenReady.map((o:any)=>o.orderNumber).join(", ")}`); else showToast("No orders ready"); }, badge: kitchenReady.length },
+    { icon: BookOpen,  title: "Register Summary",  onClick: () => setShowRegistry(true) },
+    { icon: Monitor,   title: "Customer Display",  onClick: openCustomerDisplay },
+    { icon: Maximize,  title: "Fullscreen",        onClick: toggleFullscreen },
+  ];
+
   // ── Constants
-  const TOOLBAR_ICONS = [LogOut, Globe, FolderOpen, Printer, Clock, Briefcase, Grid3x3, Monitor, Bell, Receipt, Monitor, Monitor, Scissors, Menu];
   const TABS: { key: OrderType; label: string; icon: any }[] = [
     { key: "dine-in",   label: "Dine In",   icon: Grid3x3  },
     { key: "takeaway",  label: "Take Away", icon: ShoppingBag },
@@ -1043,14 +1464,22 @@ export default function POSPage() {
       <div className="flex items-center h-10 px-2 border-b shrink-0" style={{ background: SURF, borderColor: BORD }}>
         {/* Icon strip */}
         <div className="flex items-center gap-0.5 shrink-0">
-          {TOOLBAR_ICONS.map((Icon, i) => (
-            <button key={i} className="w-7 h-7 flex items-center justify-center rounded transition-colors"
-              style={{ color: MUTED }}
-              onMouseEnter={e => (e.currentTarget.style.background = SURF2)}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-              <Icon size={15} />
-            </button>
-          ))}
+          {TOOLBAR.map((btn, i) => {
+            const Icon = btn.icon;
+            return (
+              <button key={i} title={btn.title} onClick={btn.onClick}
+                className="relative w-7 h-7 flex items-center justify-center rounded transition-colors"
+                style={{ color: MUTED }}
+                onMouseEnter={e => (e.currentTarget.style.background = SURF2)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                <Icon size={15} />
+                {!!btn.badge && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold"
+                    style={{ background: "#EF4444", color: "#fff" }}>{btn.badge}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
         {/* Logo */}
         <div className="ml-3 flex items-center gap-2 shrink-0">
@@ -1130,13 +1559,31 @@ export default function POSPage() {
               onClick={() => selectedOrderId && loadOrderForEdit(selectedOrderId)} />
             <Btn icon={Info}     label="Order Details"
               onClick={() => selectedOrderId && setDetailsOrderId(selectedOrderId)} />
-            <Btn icon={RotateCcw} label="Re-print KOT"
-              onClick={() => selectedOrderId && reprintKOT.mutate(selectedOrderId)} />
+            <div className="relative">
+              {showKotMenu && selectedOrderId && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowKotMenu(false)} />
+                  <div className="absolute bottom-full left-0 mb-1.5 z-50 w-full rounded-lg border shadow-xl p-1.5 space-y-1"
+                    style={{ background: SURF2, borderColor: BORD }}>
+                    <button onClick={() => { reprintKOT.mutate({ orderId: selectedOrderId, mode: "all" }); setShowKotMenu(false); }}
+                      className="w-full py-2 rounded text-xs font-semibold transition-all hover:brightness-110"
+                      style={{ background: GOLD, color: "#000" }}>All Items</button>
+                    <button onClick={() => { reprintKOT.mutate({ orderId: selectedOrderId, mode: "new" }); setShowKotMenu(false); }}
+                      className="w-full py-2 rounded text-xs font-semibold transition-all hover:brightness-110"
+                      style={{ background: "#22C55E", color: "#000" }}>New Items</button>
+                    {/* pointer */}
+                    <div className="absolute -bottom-1.5 left-6 w-3 h-3 rotate-45" style={{ background: SURF2, borderRight: `1px solid ${BORD}`, borderBottom: `1px solid ${BORD}` }} />
+                  </div>
+                </>
+              )}
+              <Btn icon={RotateCcw} label="Re-print KOT"
+                onClick={() => { if (selectedOrderId) setShowKotMenu(v => !v); }} />
+            </div>
             <div className="grid grid-cols-2 gap-1">
               <Btn icon={Receipt} label="Invoice"
                 onClick={() => { if (selectedOrderId) { setFinalizeIsQuick(false); setFinalizeOrderId(selectedOrderId); } }} />
               <Btn icon={Printer} label="Bill"
-                onClick={() => { if (selectedOrderId) { setFinalizeIsQuick(false); setFinalizeOrderId(selectedOrderId); } }} />
+                onClick={() => { if (selectedOrderId) { setInvoicePreviewMode("bill"); setInvoicePreviewId(selectedOrderId); } }} />
             </div>
             <Btn icon={Ban} label="Cancel Order" danger
               onClick={() => selectedOrderId && setCancelConfirmId(selectedOrderId)} />
@@ -1302,12 +1749,21 @@ export default function POSPage() {
         <div className="flex-1 flex flex-col min-w-0" style={{ background: BG }}>
           {/* Search */}
           <div className="p-2 border-b" style={{ borderColor: BORD }}>
-            <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: DIM }} />
-              <input className="w-full pl-8 pr-3 py-2 rounded border text-xs focus:outline-none"
-                style={{ background: SURF2, color: TEXT, borderColor: BORD }}
-                placeholder="Name or Code or Category…"
-                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: DIM }} />
+                <input className="w-full pl-8 pr-3 py-2 rounded border text-xs focus:outline-none"
+                  style={{ background: SURF2, color: TEXT, borderColor: BORD }}
+                  placeholder="Name or Code or Category…"
+                  value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              </div>
+              <button
+                onClick={() => { setQaError(null); setQaForm({ name: "", code: "", categoryId: "", priceDineIn: "", priceTakeaway: "", priceDelivery: "", isVeg: false, isBeverage: false }); setShowQuickAddItem(true); }}
+                title="Quick Add Item"
+                className="flex items-center justify-center w-8 h-8 rounded border shrink-0 transition-all hover:brightness-125"
+                style={{ background: SURF2, borderColor: GOLD, color: GOLD }}>
+                <Plus size={14} />
+              </button>
             </div>
           </div>
 
@@ -1395,19 +1851,21 @@ export default function POSPage() {
               </div>
               <button onClick={() => setVarPickerItem(null)} style={{ color: DIM }}><X size={16} /></button>
             </div>
-            <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
-              {varPickerItem.variations.map((v: any) => {
-                const price = orderType === "dine-in" ? v.priceDineIn : orderType === "takeaway" ? v.priceTakeaway : v.priceDelivery;
-                return (
-                  <button key={v.id}
-                    onClick={() => { addToCart(varPickerItem, v); setVarPickerItem(null); }}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all hover:brightness-110"
-                    style={{ background: BG, borderColor: BORD }}>
-                    <span className="text-sm font-medium" style={{ color: TEXT }}>{v.name}</span>
-                    <span className="text-sm font-bold font-mono" style={{ color: GOLD }}>{price.toFixed(2)}</span>
-                  </button>
-                );
-              })}
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              <div className="flex flex-wrap gap-2">
+                {varPickerItem.variations.map((v: any) => {
+                  const price = orderType === "dine-in" ? v.priceDineIn : orderType === "takeaway" ? v.priceTakeaway : v.priceDelivery;
+                  return (
+                    <button key={v.id}
+                      onClick={() => { addToCart(varPickerItem, v); setVarPickerItem(null); }}
+                      className="flex flex-col items-center px-4 py-3 rounded-xl border transition-all hover:brightness-110"
+                      style={{ background: BG, borderColor: BORD, minWidth: "100px" }}>
+                      <span className="text-sm font-medium" style={{ color: TEXT }}>{v.name}</span>
+                      <span className="text-xs font-bold font-mono mt-1" style={{ color: GOLD }}>{Number(price).toFixed(2)}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1434,6 +1892,31 @@ export default function POSPage() {
           onCreateInvoice={() => { setDetailsOrderId(null); setFinalizeIsQuick(false); setFinalizeOrderId(detailsOrderId); }} />
       )}
 
+      {/* ── Toolbar modals ── */}
+      {showDrafts && (
+        <DraftSalesModal branchId={branchId!} onClose={() => setShowDrafts(false)}
+          onLoad={(id) => loadOrderForEdit(id)} />
+      )}
+      {showRefund && (
+        <RefundModal branchId={branchId!} onClose={() => setShowRefund(false)} />
+      )}
+
+      {invoicePreviewId && (
+        <InvoiceOverlay orderId={invoicePreviewId} mode={invoicePreviewMode} onClose={() => setInvoicePreviewId(null)} />
+      )}
+
+      {showRecentSales && (
+        <RecentSalesModal branchId={branchId!} onClose={() => setShowRecentSales(false)}
+          onView={(id) => { setShowRecentSales(false); setDetailsOrderId(id); }}
+          onReprint={(id) => openInvoicePreview(id)} />
+      )}
+      {showSelfOrderQR && (
+        <SelfOrderQRModal branchId={branchId!} onClose={() => setShowSelfOrderQR(false)} />
+      )}
+      {showRegistry && (
+        <RegistryModal branchId={branchId!} onClose={() => setShowRegistry(false)} />
+      )}
+
       {/* Finalize Sale modal — for Invoice (running order) and Quick Invoice */}
       {finalizeOrderId && modalOrder.id && (
         <FinalizeModal
@@ -1441,11 +1924,14 @@ export default function POSPage() {
           items={modalItems}
           onClose={() => { setFinalizeOrderId(null); setFinalizeIsQuick(false); }}
           onSubmit={(_payments) => {
-            // Mark order as completed
-            updateOrderStatus.mutate({ id: finalizeOrderId, status: "completed" });
+            // Mark order as completed then show invoice overlay
+            const completedId = finalizeOrderId;
+            updateOrderStatus.mutate({ id: completedId, status: "completed" });
             setFinalizeOrderId(null);
             setFinalizeIsQuick(false);
             showToast("Payment recorded. Sale finalized!");
+            setInvoicePreviewMode("invoice");
+            setInvoicePreviewId(completedId);
           }}
         />
       )}
@@ -1472,6 +1958,137 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* Quick Add Item Modal */}
+      {showQuickAddItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
+          <div className="w-96 rounded-2xl border shadow-2xl flex flex-col" style={{ background: SURF, borderColor: BORD }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: BORD }}>
+              <div className="flex items-center gap-2">
+                <Plus size={14} style={{ color: GOLD }} />
+                <span className="font-bold text-sm" style={{ color: TEXT }}>Quick Add Item</span>
+              </div>
+              <button onClick={() => setShowQuickAddItem(false)} style={{ color: MUTED }}><X size={15} /></button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-3 overflow-y-auto max-h-[70vh]">
+              {/* Name */}
+              <div>
+                <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>Name <span style={{ color: "#EF4444" }}>*</span></label>
+                <input
+                  className="w-full px-3 py-2 rounded border text-xs focus:outline-none"
+                  style={{ background: "var(--color-bg)", color: TEXT, borderColor: BORD }}
+                  placeholder="e.g. Chicken Burger"
+                  value={qaForm.name}
+                  onChange={e => setQaForm(f => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+
+              {/* Code */}
+              <div>
+                <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>Item Code</label>
+                <input
+                  className="w-full px-3 py-2 rounded border text-xs focus:outline-none"
+                  style={{ background: "var(--color-bg)", color: TEXT, borderColor: BORD }}
+                  placeholder="e.g. CB01 (optional)"
+                  value={qaForm.code}
+                  onChange={e => setQaForm(f => ({ ...f, code: e.target.value }))}
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>Category</label>
+                <select
+                  className="w-full px-3 py-2 rounded border text-xs focus:outline-none"
+                  style={{ background: "var(--color-bg)", color: TEXT, borderColor: BORD }}
+                  value={qaForm.categoryId}
+                  onChange={e => setQaForm(f => ({ ...f, categoryId: e.target.value }))}
+                >
+                  <option value="">— None —</option>
+                  {categories.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prices */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Dine-In Price", key: "priceDineIn" as const, required: true },
+                  { label: "Takeaway", key: "priceTakeaway" as const },
+                  { label: "Delivery", key: "priceDelivery" as const },
+                ].map(({ label, key, required }) => (
+                  <div key={key}>
+                    <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>
+                      {label}{required && <span style={{ color: "#EF4444" }}> *</span>}
+                    </label>
+                    <input
+                      type="number" min="0" step="0.01"
+                      className="w-full px-2 py-2 rounded border text-xs focus:outline-none"
+                      style={{ background: "var(--color-bg)", color: TEXT, borderColor: BORD }}
+                      placeholder="0.00"
+                      value={qaForm[key]}
+                      onChange={e => setQaForm(f => ({ ...f, [key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Toggles */}
+              <div className="flex gap-3">
+                {[
+                  { label: "Vegetarian", key: "isVeg" as const },
+                  { label: "Beverage", key: "isBeverage" as const },
+                ].map(({ label, key }) => (
+                  <button
+                    key={key}
+                    onClick={() => setQaForm(f => ({ ...f, [key]: !f[key] }))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-all"
+                    style={{
+                      borderColor: qaForm[key] ? GOLD : BORD,
+                      background: qaForm[key] ? GOLD + "18" : "transparent",
+                      color: qaForm[key] ? GOLD : MUTED,
+                    }}
+                  >
+                    <div className="w-3 h-3 rounded-sm border flex items-center justify-center"
+                      style={{ borderColor: qaForm[key] ? GOLD : BORD, background: qaForm[key] ? GOLD : "transparent" }}>
+                      {qaForm[key] && <span className="text-[8px] font-bold" style={{ color: "var(--color-bg)" }}>✓</span>}
+                    </div>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {qaError && (
+                <div className="text-xs px-3 py-2 rounded border" style={{ color: "#F87171", borderColor: "#EF444444", background: "#EF444411" }}>
+                  {qaError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="grid grid-cols-2 border-t" style={{ borderColor: BORD }}>
+              <button
+                onClick={() => setShowQuickAddItem(false)}
+                className="py-3 text-xs font-semibold"
+                style={{ color: MUTED }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => quickAddItem.mutate()}
+                disabled={quickAddItem.isPending}
+                className="py-3 text-xs font-semibold disabled:opacity-50"
+                style={{ background: GOLD, color: "var(--color-bg)" }}>
+                {quickAddItem.isPending ? "Adding…" : "Add Item"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
     </div>
   );

@@ -145,16 +145,61 @@ export const printJobs = sqliteTable("print_jobs", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// Suppliers
+export const suppliers = sqliteTable("suppliers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  notes: text("notes"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Purchase Items (catalog of purchasable items, separate from menu items)
+export const purchaseItems = sqliteTable("purchase_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id),
+  name: text("name").notNull(),
+  unit: text("unit").notNull().default("pcs"), // kg | g | litre | ml | pcs | dozen | box | bag
+  lastCost: real("last_cost").notNull().default(0),
+  notes: text("notes"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // Purchases
 export const purchases = sqliteTable("purchases", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   branchId: integer("branch_id").references(() => branches.id),
+  supplierId: integer("supplier_id").references(() => suppliers.id),
   supplierName: text("supplier_name").notNull(),
+  purchaseItemId: integer("purchase_item_id").references(() => purchaseItems.id),
   itemDescription: text("item_description").notNull(),
+  invoiceNumber: text("invoice_number"),
   qty: real("qty").notNull().default(1),
   unitCost: real("unit_cost").notNull().default(0),
   total: real("total").notNull().default(0),
+  amountPaid: real("amount_paid").notNull().default(0),
+  dueAmount: real("due_amount").notNull().default(0),
+  status: text("status").notNull().default("due"), // paid | partial | due
   purchaseDate: text("purchase_date").notNull(),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Purchase Payments
+export const purchasePayments = sqliteTable("purchase_payments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  purchaseId: integer("purchase_id").references(() => purchases.id).notNull(),
+  branchId: integer("branch_id").references(() => branches.id),
+  amount: real("amount").notNull().default(0),
+  paymentDate: text("payment_date").notNull(),
+  method: text("method").notNull().default("cash"), // cash | bank | cheque | card
+  reference: text("reference"),
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
@@ -213,5 +258,20 @@ export const promotions = sqliteTable("promotions", {
   startDate: text("start_date"),
   endDate: text("end_date"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Outbox — change events buffered for cloud sync
+export const outbox = sqliteTable("outbox", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  branchId: integer("branch_id").references(() => branches.id).notNull(),
+  table: text("table").notNull(),         // which table changed
+  operation: text("operation").notNull(), // insert | update | delete
+  recordId: integer("record_id").notNull(),
+  payload: text("payload").notNull(),     // JSON snapshot
+  synced: integer("synced", { mode: "boolean" }).notNull().default(false),
+  syncedAt: integer("synced_at", { mode: "timestamp" }),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
