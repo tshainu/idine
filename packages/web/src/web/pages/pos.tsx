@@ -459,12 +459,23 @@ function FinalizeModal({
   order: any;
   items: any[];
   onClose: () => void;
-  onSubmit?: (payments: PaymentEntry[]) => void;
+  onSubmit?: (payments: PaymentEntry[], summary: { subtotal: number; discount: number; serviceCharge: number; total: number; amountPaid: number; cashGiven: number; balance: number; paymentMethod: string }) => void;
 }) {
+  const branchId = getBranchId();
+  const { data: settingsRaw } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json() as any,
+  });
+  const settings: Record<string, string> = (settingsRaw as any)?.settings || {};
+  // Parse service charge % from settings e.g. "10%" or "10"
+  const serviceChargeRate = parseFloat((settings.serviceCharge || "0").replace("%", "")) / 100;
+
   const subtotal      = items.reduce((s: number, i: any) => s + (i.total ?? i.qty * i.price), 0);
   const itemDiscount  = items.reduce((s: number, i: any) => s + (i.discount ?? 0), 0);
   const [extraDiscount, setExtraDiscount] = useState(0);
-  const payable       = Math.max(0, subtotal - itemDiscount - extraDiscount);
+  const afterDiscount = Math.max(0, subtotal - itemDiscount - extraDiscount);
+  const serviceCharge = parseFloat((afterDiscount * serviceChargeRate).toFixed(2));
+  const payable       = parseFloat((afterDiscount + serviceCharge).toFixed(2));
 
   const [activeMethod,    setActiveMethod]    = useState<PaymentMethod>("Cash");
   const [givenAmount,     setGivenAmount]     = useState("");
@@ -507,7 +518,22 @@ function FinalizeModal({
   }
 
   function handleSubmit() {
-    if (onSubmit) onSubmit(payments);
+    const totalPaidNow = payments.reduce((s, p) => s + p.amount, 0);
+    const cashEntry = payments.find(p => p.method === "Cash");
+    const cashGivenVal = cashEntry ? parseFloat(givenAmount || "0") || cashEntry.amount : 0;
+    const balanceVal = parseFloat((totalPaidNow - payable).toFixed(2));
+    const primaryMethod = payments.length === 1 ? payments[0].method : payments.length > 1 ? "Split" : "Cash";
+    const summary = {
+      subtotal,
+      discount: itemDiscount + extraDiscount,
+      serviceCharge,
+      total: payable,
+      amountPaid: totalPaidNow,
+      cashGiven: cashGivenVal,
+      balance: balanceVal,
+      paymentMethod: primaryMethod,
+    };
+    if (onSubmit) onSubmit(payments, summary);
     else onClose();
   }
 
@@ -740,6 +766,12 @@ function FinalizeModal({
                       <span style={{ color: "#EF4444" }}>-{(itemDiscount + extraDiscount).toFixed(2)}</span>
                     </div>
                   )}
+                  {serviceCharge > 0 && (
+                    <div className="flex justify-between">
+                      <span style={{ color: MUTED }}>Service Charge</span>
+                      <span style={{ color: TEXT }}>+{serviceCharge.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold border-t pt-1" style={{ borderColor: BORD }}>
                     <span style={{ color: TEXT }}>Payable</span>
                     <span style={{ color: GOLD }}>{payable.toFixed(2)}</span>
@@ -849,10 +881,17 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
   const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-  const subtotal = items.reduce((s, it) => s + Number(it.total || 0), 0);
-  const discount = Number(order?.discount || 0);
-  const tax      = Number(order?.tax || 0);
-  const total    = Number(order?.total || subtotal);
+  const subtotal      = items.reduce((s, it) => s + Number(it.total || 0), 0);
+  const discount      = Number(order?.discount || 0);
+  const serviceCharge = Number(order?.serviceCharge || 0);
+  const total         = Number(order?.total || subtotal);
+  const amountPaid    = Number(order?.amountPaid || 0);
+  const cashGiven     = Number(order?.cashGiven || 0);
+  const balance       = Number(order?.balance || 0);
+  const paymentMethod = order?.paymentMethod || "Cash";
+  let payments: PaymentEntry[] = [];
+  try { payments = JSON.parse(order?.paymentsJson || "[]"); } catch {}
+  const tax = 0;
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
@@ -932,28 +971,67 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
 
                   {/* Totals block */}
                   <div style={{ borderTop: "1px dashed #bbb", marginTop: 8, paddingTop: 8 }}>
-                    {subtotal !== total && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
-                        <span>Subtotal</span>
-                        <span>{money(subtotal)}</span>
-                      </div>
-                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                      <span>Subtotal</span>
+                      <span>{money(subtotal)}</span>
+                    </div>
                     {discount > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#16a34a", marginBottom: 3 }}>
                         <span>Discount</span>
                         <span>- {money(discount)}</span>
                       </div>
                     )}
-                    {tax > 0 && (
+                    {serviceCharge > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
-                        <span>Tax</span>
-                        <span>{money(tax)}</span>
+                        <span>Service Charge</span>
+                        <span>{money(serviceCharge)}</span>
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, borderTop: "2px solid #111", marginTop: 6, paddingTop: 6 }}>
                       <span>TOTAL</span>
                       <span>{money(total)}</span>
                     </div>
+
+                    {/* Payment breakdown — invoice only */}
+                    {isInvoice && amountPaid > 0 && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #bbb" }}>
+                        {payments.length > 1 ? (
+                          payments.map((p, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                              <span>Paid ({p.method}){p.ref ? ` — ${p.ref}` : ""}</span>
+                              <span>{money(p.amount)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                            <span>Payment Method</span>
+                            <span style={{ fontWeight: 600 }}>{paymentMethod}</span>
+                          </div>
+                        )}
+                        {paymentMethod === "Cash" && cashGiven > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                            <span>Cash Given</span>
+                            <span>{money(cashGiven)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#166534", marginBottom: 3 }}>
+                          <span>Amount Paid</span>
+                          <span>{money(amountPaid)}</span>
+                        </div>
+                        {balance > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#166534", marginBottom: 3 }}>
+                            <span>Balance (Change)</span>
+                            <span>{money(balance)}</span>
+                          </div>
+                        )}
+                        {balance < 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#dc2626", marginBottom: 3 }}>
+                            <span>Balance Due</span>
+                            <span>{money(Math.abs(balance))}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Status badge */}
@@ -1965,10 +2043,26 @@ export default function POSPage() {
           order={modalOrder}
           items={modalItems}
           onClose={() => { setFinalizeOrderId(null); setFinalizeIsQuick(false); }}
-          onSubmit={(_payments) => {
-            // Mark order as completed then show invoice overlay
-            const completedId = finalizeOrderId;
-            updateOrderStatus.mutate({ id: completedId, status: "completed" });
+          onSubmit={async (_payments, summary) => {
+            const completedId = finalizeOrderId!;
+            // Save payment data + mark completed
+            await fetch(`/api/orders/${completedId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: "completed",
+                subtotal: summary.subtotal,
+                discount: summary.discount,
+                serviceCharge: summary.serviceCharge,
+                total: summary.total,
+                paymentMethod: summary.paymentMethod,
+                amountPaid: summary.amountPaid,
+                cashGiven: summary.cashGiven,
+                balance: summary.balance,
+                paymentsJson: JSON.stringify(_payments),
+              }),
+            });
+            qc.invalidateQueries({ queryKey: ["orders"] });
             setFinalizeOrderId(null);
             setFinalizeIsQuick(false);
             showToast("Payment recorded. Sale finalized!");

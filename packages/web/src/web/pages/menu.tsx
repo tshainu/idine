@@ -26,12 +26,12 @@ type CartItem = {
 
 function parseSearch(search: string) {
   const p = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  return { branch: p.get("branch"), table: p.get("table") };
+  return { branch: p.get("branch"), table: p.get("table"), token: p.get("token") };
 }
 
 export default function MenuPage() {
   const search = useSearch();
-  const { branch, table } = parseSearch(search);
+  const { branch, table, token } = parseSearch(search);
   const branchId = branch ? parseInt(branch) : null;
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -42,6 +42,24 @@ export default function MenuPage() {
   const [searchQ, setSearchQ] = useState("");
   const [placed, setPlaced] = useState(false);
   const [orderNum, setOrderNum] = useState("");
+  const [tokenStatus, setTokenStatus] = useState<"checking" | "valid" | "invalid" | "expired">("checking");
+
+  // Verify token on load
+  useEffect(() => {
+    if (!token) { setTokenStatus("invalid"); return; }
+    fetch("/api/menu/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json.valid) setTokenStatus("valid");
+        else if (json.reason === "expired") setTokenStatus("expired");
+        else setTokenStatus("invalid");
+      })
+      .catch(() => setTokenStatus("invalid"));
+  }, [token]);
 
   // Fetch menu items
   const { data: itemsData, isLoading: itemsLoading } = useQuery({
@@ -77,18 +95,18 @@ export default function MenuPage() {
   const categories: any[] = catData?.categories || [];
   const branchName = branchData?.branches?.[0]?.name || "Restaurant";
 
-  // Auto-select first category
+  // -1 = "All Items" sentinel
   useEffect(() => {
-    if (categories.length > 0 && activeCategory === null) {
-      setActiveCategory(categories[0].id);
+    if (activeCategory === null) {
+      setActiveCategory(-1);
     }
-  }, [categories]);
+  }, []);
 
   const filteredItems = useMemo(() => {
     let items = allItems;
     if (searchQ) {
       items = items.filter(i => i.name.toLowerCase().includes(searchQ.toLowerCase()));
-    } else if (activeCategory !== null) {
+    } else if (activeCategory !== null && activeCategory !== -1) {
       items = items.filter(i => i.categoryId === activeCategory || i.category_id === activeCategory);
     }
     return items;
@@ -185,6 +203,42 @@ export default function MenuPage() {
     );
   }
 
+  if (tokenStatus === "checking") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
+        <div className="text-center p-8">
+          <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto mb-4"
+            style={{ borderColor: GOLD, borderTopColor: "transparent" }} />
+          <p className="text-xs" style={{ color: MUTED }}>Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (tokenStatus === "expired") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
+        <div className="text-center p-8 max-w-xs">
+          <div className="text-3xl mb-4">⏱️</div>
+          <div className="font-bold text-sm mb-2" style={{ color: TEXT }}>QR Code Expired</div>
+          <p className="text-xs" style={{ color: MUTED }}>This QR session has expired (3 hours). Please ask staff to generate a fresh QR code for your table.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (tokenStatus === "invalid") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
+        <div className="text-center p-8 max-w-xs">
+          <UtensilsCrossed size={48} className="mx-auto mb-4 opacity-30" style={{ color: GOLD }} />
+          <div className="font-bold text-sm mb-2" style={{ color: TEXT }}>Invalid QR Code</div>
+          <p className="text-xs" style={{ color: MUTED }}>Please scan the QR code at your table to order.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (placed) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
@@ -250,6 +304,17 @@ export default function MenuPage() {
         {/* Category pills */}
         {!searchQ && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+            {/* All Items tab */}
+            <button
+              onClick={() => setActiveCategory(-1)}
+              className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
+              style={{
+                background: activeCategory === -1 ? GOLD : SURF,
+                color: activeCategory === -1 ? "#1A0A2E" : MUTED,
+                borderColor: activeCategory === -1 ? GOLD : BORD,
+              }}>
+              All Items
+            </button>
             {categories.map((cat: any) => (
               <button key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
@@ -274,7 +339,7 @@ export default function MenuPage() {
             <p className="text-sm" style={{ color: DIM }}>No items found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {filteredItems.map((item: any) => {
               const qty = getQty(item.id);
               const price = Number(item.price);
@@ -282,42 +347,39 @@ export default function MenuPage() {
                 <div key={item.id} className="rounded-2xl border flex flex-col overflow-hidden"
                   style={{ background: SURF, borderColor: BORD }}>
                   {/* Image */}
-                  <div className="w-full aspect-square flex items-center justify-center overflow-hidden"
-                    style={{ background: GOLD + "12" }}>
+                  <div className="w-full flex items-center justify-center overflow-hidden"
+                    style={{ background: GOLD + "12", height: "90px" }}>
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
-                      <UtensilsCrossed size={32} style={{ color: GOLD + "60" }} />
+                      <UtensilsCrossed size={24} style={{ color: GOLD + "60" }} />
                     )}
                   </div>
                   {/* Info */}
-                  <div className="p-3 flex flex-col flex-1">
-                    <div className="text-xs font-semibold leading-snug mb-1" style={{ color: TEXT }}>{item.name}</div>
-                    {item.description && (
-                      <div className="text-[10px] line-clamp-1 mb-1" style={{ color: DIM }}>{item.description}</div>
-                    )}
-                    <div className="text-sm font-bold mt-auto mb-2" style={{ color: GOLD }}>
-                      {price > 0 ? `LKR ${price.toLocaleString()}` : "Market price"}
+                  <div className="p-2 flex flex-col flex-1">
+                    <div className="text-[10px] font-semibold leading-snug mb-1" style={{ color: TEXT }}>{item.name}</div>
+                    <div className="text-[10px] font-bold mt-auto mb-1.5" style={{ color: GOLD }}>
+                      {price > 0 ? `LKR ${price.toLocaleString()}` : "Mkt"}
                     </div>
                     {/* Add / qty */}
                     {qty === 0 ? (
                       <button onClick={() => addToCart(item)}
-                        className="w-full py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
+                        className="w-full py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-0.5"
                         style={{ background: GOLD, color: "#1A0A2E" }}>
-                        <Plus size={13} /> Add
+                        <Plus size={11} /> Add
                       </button>
                     ) : (
                       <div className="flex items-center justify-between">
                         <button onClick={() => removeFromCart(item.id)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                          className="w-6 h-6 rounded-md flex items-center justify-center border"
                           style={{ borderColor: BORD, color: MUTED }}>
-                          <Minus size={13} />
+                          <Minus size={10} />
                         </button>
-                        <span className="text-sm font-bold" style={{ color: TEXT }}>{qty}</span>
+                        <span className="text-xs font-bold" style={{ color: TEXT }}>{qty}</span>
                         <button onClick={() => addToCart(item)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          className="w-6 h-6 rounded-md flex items-center justify-center"
                           style={{ background: GOLD, color: "#1A0A2E" }}>
-                          <Plus size={13} />
+                          <Plus size={10} />
                         </button>
                       </div>
                     )}

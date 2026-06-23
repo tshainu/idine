@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight, Table2, QrCode, Download, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight, Table2, QrCode, Download, X, RefreshCw } from "lucide-react";
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -21,6 +21,9 @@ export default function TablesPage() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [qrTable, setQrTable] = useState<any>(null);
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrExpiry, setQrExpiry] = useState<number | null>(null); // timestamp ms
 
   const { data: tablesData, isLoading } = useQuery({
     queryKey: ["tables", branchId],
@@ -48,6 +51,32 @@ export default function TablesPage() {
     mutationFn: async ({ id, isActive }: any) => (await api.tables[":id"].$patch({ param: { id: String(id) }, json: { isActive } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tables"] }),
   });
+
+  async function fetchQrToken(table: any) {
+    setQrLoading(true);
+    setQrToken(null);
+    try {
+      const res = await fetch("/api/menu/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchId, table: table.name }),
+      });
+      const json = await res.json();
+      setQrToken(json.token);
+      setQrExpiry(Date.now() + json.expiresIn * 1000);
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  // Auto-refresh token 5 min before expiry
+  useEffect(() => {
+    if (!qrTable || !qrExpiry) return;
+    const ms = qrExpiry - Date.now() - 5 * 60 * 1000;
+    if (ms <= 0) return;
+    const t = setTimeout(() => fetchQrToken(qrTable), ms);
+    return () => clearTimeout(t);
+  }, [qrExpiry, qrTable]);
 
   function resetForm() { setShowForm(false); setEditItem(null); setForm({}); }
   function openEdit(t: any) {
@@ -121,7 +150,7 @@ export default function TablesPage() {
                     <span>{t.capacity || 4} seats</span>
                   </div>
                   <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => setQrTable(t)} className="p-1 rounded" title="Download QR" style={{ color: "#38BDF8" }}>
+                    <button onClick={() => { setQrTable(t); fetchQrToken(t); }} className="p-1 rounded" title="Download QR" style={{ color: "#38BDF8" }}>
                       <QrCode size={12} />
                     </button>
                     <button onClick={() => openEdit(t)} className="p-1 rounded text-xs" style={{ color: GOLD }}>
@@ -143,35 +172,75 @@ export default function TablesPage() {
 
       {/* QR Modal */}
       {qrTable && (() => {
-        const menuUrl = `${window.location.origin}/menu?branch=${branchId}&table=${encodeURIComponent(qrTable.name)}`;
-        const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(menuUrl)}`;
+        const menuUrl = qrToken
+          ? `${window.location.origin}/menu?branch=${branchId}&table=${encodeURIComponent(qrTable.name)}&token=${encodeURIComponent(qrToken)}`
+          : null;
+        const qrSrc = menuUrl
+          ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(menuUrl)}`
+          : null;
+        const expiresLabel = qrExpiry
+          ? `Expires at ${new Date(qrExpiry).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+          : "";
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
             <div className="w-80 rounded-2xl border p-6 flex flex-col items-center" style={{ background: SURF, borderColor: BORD }}>
               <div className="flex w-full items-center justify-between mb-4">
                 <div>
                   <div className="font-bold text-sm" style={{ color: TEXT }}>Table {qrTable.name} QR</div>
-                  <div className="text-[10px] mt-0.5" style={{ color: MUTED }}>Customers scan to order</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: MUTED }}>Customers scan to order · 3h session</div>
                 </div>
-                <button onClick={() => setQrTable(null)}><X size={16} style={{ color: MUTED }} /></button>
-              </div>
-              <div className="p-3 rounded-xl bg-white mb-4">
-                <img src={qrSrc} alt={`QR for ${qrTable.name}`} width={240} height={240} />
-              </div>
-              <div className="w-full text-[10px] px-2 py-1.5 rounded border mb-3 truncate" style={{ background: "#0D0618", borderColor: BORD, color: MUTED }}>
-                {menuUrl}
-              </div>
-              <div className="flex gap-2 w-full">
-                <a href={qrSrc} download={`table-${qrTable.name}-qr.png`} target="_blank" rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
-                  style={{ background: GOLD, color: "#1A0A2E" }}>
-                  <Download size={13} /> Download QR
-                </a>
-                <button onClick={() => { navigator.clipboard.writeText(menuUrl); }}
-                  className="px-3 py-2 rounded-xl text-xs border"
-                  style={{ borderColor: BORD, color: MUTED }}>
-                  Copy Link
+                <button onClick={() => { setQrTable(null); setQrToken(null); setQrExpiry(null); }}>
+                  <X size={16} style={{ color: MUTED }} />
                 </button>
+              </div>
+
+              {/* QR display */}
+              <div className="p-3 rounded-xl bg-white mb-3 flex items-center justify-center" style={{ width: 264, height: 264 }}>
+                {qrLoading ? (
+                  <div className="text-xs text-gray-400">Generating secure QR...</div>
+                ) : qrSrc ? (
+                  <img src={qrSrc} alt={`QR for ${qrTable.name}`} width={240} height={240} />
+                ) : null}
+              </div>
+
+              {/* Expiry badge */}
+              {expiresLabel && (
+                <div className="text-[10px] mb-2 px-2 py-1 rounded-full flex items-center gap-1"
+                  style={{ background: "rgba(245,166,35,0.12)", color: GOLD }}>
+                  🔒 {expiresLabel}
+                </div>
+              )}
+
+              {/* URL */}
+              {menuUrl && (
+                <div className="w-full text-[9px] px-2 py-1.5 rounded border mb-3 truncate" style={{ background: "#0D0618", borderColor: BORD, color: MUTED }}>
+                  {menuUrl}
+                </div>
+              )}
+
+              <div className="flex gap-2 w-full">
+                {qrSrc ? (
+                  <a href={qrSrc} download={`table-${qrTable.name}-qr.png`} target="_blank" rel="noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
+                    style={{ background: GOLD, color: "#1A0A2E" }}>
+                    <Download size={13} /> Download QR
+                  </a>
+                ) : (
+                  <div className="flex-1" />
+                )}
+                <button onClick={() => fetchQrToken(qrTable)}
+                  className="px-3 py-2 rounded-xl text-xs border flex items-center gap-1"
+                  style={{ borderColor: BORD, color: MUTED }}
+                  title="Regenerate token">
+                  <RefreshCw size={12} /> Refresh
+                </button>
+                {menuUrl && (
+                  <button onClick={() => navigator.clipboard.writeText(menuUrl)}
+                    className="px-3 py-2 rounded-xl text-xs border"
+                    style={{ borderColor: BORD, color: MUTED }}>
+                    Copy
+                  </button>
+                )}
               </div>
             </div>
           </div>

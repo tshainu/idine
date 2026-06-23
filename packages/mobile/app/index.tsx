@@ -1,190 +1,164 @@
 import { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, StatusBar, SafeAreaView,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
+  StatusBar, TextInput, KeyboardAvoidingView, Platform, ScrollView,
+  Image,
 } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { loadUser, saveUser, WaiterUser } from "../lib/auth";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURFACE = "#1A0A2E";
-const SURFACE2 = "#221040";
-const BORDER = "#2A1A4A";
-const TEXT = "#EDE8F5";
-const MUTED = "#9D8EC0";
+const NAVY = "#0D1B6E";
+const NAVY2 = "#162280";
+const WHITE = "#FFFFFF";
+const LIGHT = "#E8ECF8";
+const MUTED = "#8891B8";
+const RED = "#E53935";
 const SUCCESS = "#22C55E";
-const WARNING = "#EAB308";
-const DANGER = "#EF4444";
 
-const STATUS_COLORS: Record<string, string> = {
-  available: SUCCESS,
-  occupied: GOLD,
-  reserved: WARNING,
-  cleaning: DANGER,
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  available: "Free",
-  occupied: "Occupied",
-  reserved: "Reserved",
-  cleaning: "Cleaning",
-};
-
-export default function TablesScreen() {
+export default function LoginScreen() {
   const router = useRouter();
-  const [branchId] = useState(1);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [checking, setChecking] = useState(true);
 
-  const { data: tables, isLoading, refetch } = useQuery({
-    queryKey: ["tables", branchId],
-    queryFn: async () => {
-      const res = await api.tables.$get({ query: { branchId: String(branchId) } });
-      return res.json();
+  // Auto-login if session exists
+  useEffect(() => {
+    loadUser().then((u) => {
+      if (u) router.replace("/tables" as any);
+      else setChecking(false);
+    });
+  }, []);
+
+  const loginMutation = useMutation({
+    mutationFn: async (pinVal: string) => {
+      const res = await api.users.login.$post({
+        json: { pin: pinVal, branchId: 1 },
+      });
+      if (!res.ok) throw new Error("Invalid PIN");
+      return res.json() as Promise<{ user: WaiterUser }>;
     },
-    refetchInterval: 15000,
+    onSuccess: async ({ user }) => {
+      await saveUser({ ...user, branchId: user.branchId ?? 1 });
+      router.replace("/tables" as any);
+    },
+    onError: () => {
+      setError("Invalid PIN. Try again.");
+      setPin("");
+    },
   });
 
-  const grouped = (() => {
-    if (!tables || !Array.isArray(tables)) return [];
-    const map: Record<string, any[]> = {};
-    for (const t of tables) {
-      const zone = t.zone || "Main";
-      if (!map[zone]) map[zone] = [];
-      map[zone].push(t);
+  const handlePinPress = (digit: string) => {
+    if (pin.length >= 6) return;
+    const newPin = pin + digit;
+    setPin(newPin);
+    setError("");
+    if (newPin.length >= 4) {
+      // Try login after 4+ digits
+      setTimeout(() => loginMutation.mutate(newPin), 100);
     }
-    return Object.entries(map);
-  })();
+  };
 
-  const totalTables = tables?.length ?? 0;
-  const freeTables = (tables as any[])?.filter(t => t.status === "available").length ?? 0;
+  const handleDelete = () => {
+    setPin(prev => prev.slice(0, -1));
+    setError("");
+  };
+
+  if (checking) {
+    return (
+      <View style={{ flex: 1, backgroundColor: WHITE, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={NAVY} />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>🍽️ iDine</Text>
-          <Text style={styles.headerSub}>Floor View · Branch {branchId}</Text>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={[styles.statBadge, { backgroundColor: SUCCESS + "22" }]}>
-            <Text style={[styles.statNum, { color: SUCCESS }]}>{freeTables}</Text>
-            <Text style={[styles.statLabel, { color: SUCCESS }]}>Free</Text>
-          </View>
-          <View style={[styles.statBadge, { backgroundColor: GOLD + "22" }]}>
-            <Text style={[styles.statNum, { color: GOLD }]}>{totalTables - freeTables}</Text>
-            <Text style={[styles.statLabel, { color: GOLD }]}>Busy</Text>
-          </View>
-        </View>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={GOLD} />
-          <Text style={styles.loadingText}>Loading tables...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={grouped}
-          keyExtractor={([zone]) => zone}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
-          renderItem={({ item: [zone, zoneTables] }) => (
-            <View style={{ marginBottom: 20 }}>
-              <Text style={styles.zoneLabel}>{zone}</Text>
-              <View style={styles.tableGrid}>
-                {zoneTables.map((table: any) => {
-                  const color = STATUS_COLORS[table.status] || MUTED;
-                  return (
-                    <TouchableOpacity
-                      key={table.id}
-                      style={[styles.tableCard, {
-                        borderColor: color + "66",
-                        backgroundColor: SURFACE,
-                      }]}
-                      onPress={() => {
-                        if (table.status !== "cleaning") {
-                          router.push(`/order/${table.id}?name=${encodeURIComponent(table.name)}&status=${table.status}`);
-                        }
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.tableStatusDot, { backgroundColor: color }]} />
-                      <Text style={styles.tableName}>{table.name}</Text>
-                      <Text style={styles.tableCapacity}>
-                        <Ionicons name="people-outline" size={11} color={MUTED} /> {table.capacity}
-                      </Text>
-                      <Text style={[styles.tableStatus, { color }]}>
-                        {STATUS_LABELS[table.status] || table.status}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          {/* Logo / Brand */}
+          <View style={styles.brandRow}>
+            <View style={styles.logoBox}>
+              <Text style={styles.logoIcon}>🍽️</Text>
             </View>
-          )}
-        />
-      )}
+            <Text style={styles.brandName}>AXIS RESTAURANT</Text>
+          </View>
 
-      {/* Refresh button */}
-      <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()}>
-        <Ionicons name="refresh" size={22} color={BG} />
-      </TouchableOpacity>
+          <Text style={styles.subtitle}>Waiter Login</Text>
+          <Text style={styles.hint}>Enter your PIN to continue</Text>
+
+          {/* PIN dots */}
+          <View style={styles.pinDots}>
+            {[0, 1, 2, 3, 4, 5].map(i => (
+              <View
+                key={i}
+                style={[
+                  styles.dot,
+                  i < pin.length && styles.dotFilled,
+                ]}
+              />
+            ))}
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          {/* Number pad */}
+          <View style={styles.numPad}>
+            {[["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]].map((row, ri) => (
+              <View key={ri} style={styles.numRow}>
+                {row.map((digit, di) => (
+                  <TouchableOpacity
+                    key={di}
+                    style={[styles.numBtn, digit === "" && { opacity: 0 }]}
+                    onPress={() => digit === "⌫" ? handleDelete() : digit && handlePinPress(digit)}
+                    disabled={loginMutation.isPending}
+                    activeOpacity={0.7}
+                  >
+                    {digit === "⌫"
+                      ? <Text style={styles.numBtnText}>⌫</Text>
+                      : <Text style={styles.numBtnText}>{digit}</Text>
+                    }
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </View>
+
+          {loginMutation.isPending && (
+            <ActivityIndicator color={WHITE} style={{ marginTop: 16 }} />
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+  safe: { flex: 1, backgroundColor: WHITE },
+  container: { flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingVertical: 40 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 32 },
+  logoBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: WHITE + "22", alignItems: "center", justifyContent: "center" },
+  logoIcon: { fontSize: 24 },
+  brandName: { color: WHITE, fontSize: 18, fontWeight: "800", letterSpacing: 1 },
+  subtitle: { color: WHITE, fontSize: 24, fontWeight: "700", marginBottom: 6 },
+  hint: { color: MUTED, fontSize: 14, marginBottom: 32 },
+  pinDots: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: WHITE + "55", backgroundColor: "transparent" },
+  dotFilled: { backgroundColor: WHITE, borderColor: WHITE },
+  errorText: { color: RED, fontSize: 13, marginBottom: 16, textAlign: "center" },
+  numPad: { gap: 14, marginTop: 8 },
+  numRow: { flexDirection: "row", gap: 20 },
+  numBtn: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: NAVY2,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: WHITE + "22",
   },
-  headerTitle: { color: TEXT, fontSize: 20, fontWeight: "700" },
-  headerSub: { color: MUTED, fontSize: 12, marginTop: 2 },
-  statsRow: { flexDirection: "row", gap: 8 },
-  statBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, alignItems: "center" },
-  statNum: { fontSize: 18, fontWeight: "700" },
-  statLabel: { fontSize: 10, fontWeight: "600", marginTop: -2 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { color: MUTED, marginTop: 12, fontSize: 14 },
-  zoneLabel: { color: MUTED, fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10, marginTop: 4 },
-  tableGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  tableCard: {
-    width: "30%",
-    minWidth: 90,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    padding: 12,
-    alignItems: "center",
-    gap: 4,
-  },
-  tableStatusDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 2 },
-  tableName: { color: TEXT, fontSize: 14, fontWeight: "700" },
-  tableCapacity: { color: MUTED, fontSize: 11 },
-  tableStatus: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  refreshBtn: {
-    position: "absolute",
-    bottom: 80,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: GOLD,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-  },
+  numBtnText: { color: WHITE, fontSize: 24, fontWeight: "600" },
 });

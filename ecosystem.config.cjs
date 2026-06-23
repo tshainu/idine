@@ -13,6 +13,12 @@ module.exports = {
       restart_delay: 1000,
       env: {
         PORT: process.env.PORT || 4200,
+        NODE_ENV: "development",
+        WEBSITE_URL: "http://localhost:4200",
+        APPLICATION_ID: "idine",
+        BETTER_AUTH_SECRET: "localsecret1234567890abcdef",
+        DATABASE_URL: "file:/home/user/idine/local.db",
+        DATABASE_AUTH_TOKEN: "",
       },
     },
   ],

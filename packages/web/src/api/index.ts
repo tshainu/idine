@@ -21,6 +21,7 @@ import { promotions } from "./routes/promotions";
 import { settings } from "./routes/settings";
 import { variations } from "./routes/variations";
 import { sync } from "./routes/sync";
+import { menuToken } from "./routes/menu-token";
 
 const app = new Hono()
   .basePath("api")
@@ -47,7 +48,8 @@ const app = new Hono()
   .route("/promotions", promotions)
   .route("/settings", settings)
   .route("/variations", variations)
-  .route("/sync", sync);
+  .route("/sync", sync)
+  .route("/menu", menuToken);
 
 export type AppType = typeof app;
 export default app;
