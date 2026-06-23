@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export const purchaseItems = new Hono()
   .get("/", async (c) => {
@@ -26,4 +26,16 @@ export const purchaseItems = new Hono()
     const id = parseInt(c.req.param("id"));
     await db.update(schema.purchaseItems).set({ isActive: false }).where(eq(schema.purchaseItems.id, id));
     return c.json({ ok: true }, 200);
+  })
+  .get("/:id/history", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    const branchId = c.req.query("branchId");
+    const conditions = [eq(schema.purchases.purchaseItemId, id)];
+    if (branchId) conditions.push(eq(schema.purchases.branchId, parseInt(branchId)));
+    const rows = await db
+      .select()
+      .from(schema.purchases)
+      .where(and(...conditions))
+      .orderBy(desc(schema.purchases.purchaseDate));
+    return c.json({ history: rows }, 200);
   });
