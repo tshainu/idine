@@ -288,7 +288,7 @@ export default function WaiterOrderScreen() {
                 >
                   {placeOrder.isPending
                     ? <ActivityIndicator size="small" color={C.white} />
-                    : <><Ionicons name="send" size={15} color={C.white} /><Text style={s.placeBtnTxt}>Send KOT</Text></>
+                    : <><Ionicons name="print-outline" size={15} color={C.white} /><Text style={s.placeBtnTxt}>Place Order</Text></>
                   }
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -356,7 +356,7 @@ export default function WaiterOrderScreen() {
             </ScrollView>
           </View>
 
-          {/* ── Menu grid ── */}
+          {/* ── Menu list ── */}
           {menuLoading ? (
             <View style={{ padding: 40, alignItems: "center" }}>
               <ActivityIndicator size="large" color={C.accent} />
@@ -367,73 +367,98 @@ export default function WaiterOrderScreen() {
               <Text style={{ color: C.muted }}>No items found</Text>
             </View>
           ) : (
-            <View style={s.menuGrid}>
+            <View style={s.menuList}>
               {filteredItems.map((item: any) => {
                 const variations: Variation[] = item.variations ?? [];
                 const hasVar = variations.length > 0;
                 const baseQty = getQty(item.id);
+                const isInCart = baseQty > 0 || variations.some(v => getQty(item.id, v.id) > 0);
 
                 return (
-                  <View key={item.id} style={s.menuCard}>
-                    {/* Image */}
-                    {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={s.menuImg} />
-                    ) : (
-                      <View style={[s.menuImg, s.menuImgPlaceholder]}>
-                        <Ionicons name="fast-food-outline" size={24} color={C.muted} />
-                      </View>
-                    )}
+                  <View key={item.id} style={[s.menuListItem, isInCart && s.menuListItemActive]}>
+                    {/* Left: image */}
+                    <View style={s.menuListImgWrap}>
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={s.menuListImg} />
+                      ) : (
+                        <View style={[s.menuListImg, s.menuImgPlaceholder]}>
+                          <Ionicons name="fast-food-outline" size={20} color={C.muted} />
+                        </View>
+                      )}
+                    </View>
 
-                    {/* Name */}
-                    <Text style={s.menuName} numberOfLines={2}>{item.name}</Text>
+                    {/* Center: name + price + variations */}
+                    <View style={s.menuListInfo}>
+                      <Text style={s.menuListName} numberOfLines={1}>{item.name}</Text>
+                      {!hasVar && (
+                        <Text style={s.menuListPrice}>
+                          Rs. {Number(item.priceDineIn ?? item.price ?? 0).toFixed(0)}
+                        </Text>
+                      )}
 
-                    {/* Price */}
-                    <Text style={s.menuPrice}>
-                      Rs. {Number(item.priceDineIn ?? item.price ?? 0).toFixed(0)}
-                    </Text>
+                      {/* Variation chips */}
+                      {hasVar && (
+                        <View style={s.varChipRow}>
+                          {variations.map((v: Variation) => {
+                            const qty = getQty(item.id, v.id);
+                            return (
+                              <View key={v.id} style={s.varChipGroup}>
+                                <TouchableOpacity
+                                  style={[s.varChip, qty > 0 && s.varChipActive]}
+                                  onPress={() => addItem(item, v.id, v.name, v.priceDineIn)}
+                                >
+                                  <Text style={[s.varChipLabel, qty > 0 && s.varChipLabelActive]}>
+                                    {v.name}
+                                  </Text>
+                                  <Text style={[s.varChipPrice, qty > 0 && s.varChipLabelActive]}>
+                                    {Number(v.priceDineIn).toFixed(0)}
+                                  </Text>
+                                </TouchableOpacity>
+                                {qty > 0 && (
+                                  <View style={s.varQtyRow}>
+                                    <TouchableOpacity
+                                      style={s.varQtyBtn}
+                                      onPress={() => removeItem(cartKey(item.id, v.id))}
+                                    >
+                                      <Text style={s.varQtyBtnTxt}>−</Text>
+                                    </TouchableOpacity>
+                                    <Text style={s.varQtyNum}>{qty}</Text>
+                                    <TouchableOpacity
+                                      style={s.varQtyBtn}
+                                      onPress={() => addItem(item, v.id, v.name, v.priceDineIn)}
+                                    >
+                                      <Text style={s.varQtyBtnTxt}>+</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
 
-                    {/* Variation buttons */}
-                    {hasVar ? (
-                      <View style={s.varRow}>
-                        {variations.slice(0, 3).map((v: Variation) => {
-                          const qty = getQty(item.id, v.id);
-                          return (
-                            <TouchableOpacity
-                              key={v.id}
-                              style={[s.varBtn, qty > 0 && s.varBtnActive]}
-                              onPress={() => addItem(item, v.id, v.name, v.priceDineIn)}
-                            >
-                              <Text style={[s.varBtnTxt, qty > 0 && s.varBtnTxtActive]}>
-                                {v.code ?? v.name.charAt(0).toUpperCase()}
-                              </Text>
-                              {qty > 0 && <Text style={s.varBtnQty}>{qty}</Text>}
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    ) : (
-                      /* Base qty controls */
-                      <View style={s.qtyRow}>
+                    {/* Right: qty controls (no-variation items) */}
+                    {!hasVar && (
+                      <View style={s.menuListQty}>
                         <TouchableOpacity
                           style={[s.qtyBtn, baseQty === 0 && { opacity: 0.3 }]}
                           onPress={() => removeItem(cartKey(item.id))}
                           disabled={baseQty === 0}
                         >
-                          <Ionicons name="remove" size={16} color={C.white} />
+                          <Ionicons name="remove" size={15} color={C.white} />
                         </TouchableOpacity>
                         <Text style={[s.qtyNum, baseQty > 0 && { color: C.accent }]}>
                           {baseQty}
                         </Text>
                         <TouchableOpacity style={s.qtyBtn} onPress={() => addItem(item)}>
-                          <Ionicons name="add" size={16} color={C.white} />
+                          <Ionicons name="add" size={15} color={C.white} />
                         </TouchableOpacity>
                       </View>
                     )}
 
-                    {/* Active indicator dot */}
-                    {(baseQty > 0 || variations.some(v => getQty(item.id, v.id) > 0)) && (
-                      <View style={s.activeDot} />
-                    )}
+                    {/* In-cart indicator */}
+                    {isInCart && <View style={s.activeDot} />}
                   </View>
                 );
               })}
@@ -558,37 +583,53 @@ const s = StyleSheet.create({
   catChipTxt: { color: C.muted, fontSize: 12, fontWeight: "600" },
   catChipTxtActive: { color: C.white },
 
-  // Menu
-  menuGrid: { flexDirection: "row", flexWrap: "wrap", padding: 8, paddingBottom: 90, gap: 8 },
-  menuCard: {
-    width: "47%", backgroundColor: C.white, borderRadius: 14,
-    padding: 12, alignItems: "center", gap: 6,
-    shadowColor: C.navy, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    position: "relative",
+  // Menu list
+  menuList: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 100, gap: 8 },
+  menuListItem: {
+    flexDirection: "row", alignItems: "flex-start",
+    backgroundColor: C.white, borderRadius: 14, padding: 12, gap: 12,
+    shadowColor: C.navy, shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 2, position: "relative",
   },
-  menuImg: { width: 60, height: 60, borderRadius: 30 },
+  menuListItemActive: {
+    borderWidth: 1.5, borderColor: C.accent + "55",
+    backgroundColor: "#F0F4FF",
+  },
+  menuListImgWrap: { alignItems: "center", justifyContent: "flex-start", paddingTop: 2 },
+  menuListImg: { width: 50, height: 50, borderRadius: 10 },
   menuImgPlaceholder: { backgroundColor: C.light, alignItems: "center", justifyContent: "center" },
-  menuName: { color: C.navy, fontSize: 13, fontWeight: "700", textAlign: "center" },
-  menuPrice: { color: C.muted, fontSize: 12, fontWeight: "600" },
+  menuListInfo: { flex: 1, gap: 6 },
+  menuListName: { color: C.navy, fontSize: 14, fontWeight: "700" },
+  menuListPrice: { color: C.muted, fontSize: 12, fontWeight: "600" },
 
-  varRow: { flexDirection: "row", gap: 6 },
-  varBtn: {
-    minWidth: 34, height: 34, borderRadius: 17,
-    backgroundColor: C.light, alignItems: "center", justifyContent: "center",
-    paddingHorizontal: 8, flexDirection: "row", gap: 2,
+  // Variation chips (list view)
+  varChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  varChipGroup: { alignItems: "center", gap: 4 },
+  varChip: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    backgroundColor: C.light, borderWidth: 1.5, borderColor: C.border,
+    alignItems: "center",
   },
-  varBtnActive: { backgroundColor: C.accent },
-  varBtnTxt: { color: C.navy, fontSize: 13, fontWeight: "700" },
-  varBtnTxtActive: { color: C.white },
-  varBtnQty: { color: C.white, fontSize: 11, fontWeight: "800" },
+  varChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+  varChipLabel: { color: C.navy, fontSize: 11, fontWeight: "700" },
+  varChipPrice: { color: C.muted, fontSize: 10, fontWeight: "600" },
+  varChipLabelActive: { color: C.white },
+  varQtyRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  varQtyBtn: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: C.navy, alignItems: "center", justifyContent: "center",
+  },
+  varQtyBtnTxt: { color: C.white, fontSize: 14, fontWeight: "800", lineHeight: 18 },
+  varQtyNum: { color: C.accent, fontSize: 13, fontWeight: "800", minWidth: 16, textAlign: "center" },
 
-  qtyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  qtyBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
-  qtyNum: { width: 22, textAlign: "center", fontSize: 15, fontWeight: "800", color: C.muted },
+  // Right-side qty (no-variation items)
+  menuListQty: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 4 },
+
+  qtyBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+  qtyNum: { width: 22, textAlign: "center", fontSize: 14, fontWeight: "800", color: C.muted },
 
   activeDot: {
-    position: "absolute", top: 8, right: 8,
+    position: "absolute", top: 10, right: 10,
     width: 8, height: 8, borderRadius: 4, backgroundColor: C.green,
   },
 
