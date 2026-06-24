@@ -1,24 +1,32 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../lib/api";
+import { clearUser } from "../lib/auth";
+import { BottomNav } from "./tables";
 
-const NAVY = "#0D1B6E";
-const NAVY2 = "#162280";
-const WHITE = "#FFFFFF";
-const MUTED = "#8891B8";
-const BORDER = "#C5CCE8";
-const DARK_BORDER = "#2A3A9A";
-const SUCCESS = "#22C55E";
+const C = {
+  navy:   "#0D1B6E",
+  navy3:  "#0A1255",
+  accent: "#4F6EF7",
+  white:  "#FFFFFF",
+  light:  "#EEF0FB",
+  muted:  "#8891B8",
+  green:  "#22C55E",
+  greenBg:"#DCFCE7",
+  amber:  "#F59E0B",
+  amberBg:"#FEF3C7",
+  card:   "#F7F8FE",
+  border: "#DDE1F5",
+};
 
 export default function NotificationsScreen() {
   const router = useRouter();
 
-  // Use ready orders as notifications
-  const { data: ordersData, refetch } = useQuery({
-    queryKey: ["orders-ready-notif"],
+  const { data, refetch } = useQuery({
+    queryKey: ["notif-ready"],
     queryFn: async () => {
       const res = await (api.orders.$get as any)({ query: { branchId: "1", status: "ready" } });
       const json = await res.json() as any;
@@ -27,117 +35,117 @@ export default function NotificationsScreen() {
     refetchInterval: 15000,
   });
 
-  const readyOrders: any[] = Array.isArray(ordersData) ? ordersData : [];
+  const orders: any[] = Array.isArray(data) ? data : [];
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: async () => { await clearUser(); router.replace("/"); } },
+    ]);
+  };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
+    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
-          <Ionicons name="arrow-back" size={20} color={WHITE} />
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Ionicons name="arrow-back" size={20} color={C.white} />
         </TouchableOpacity>
-        <View style={styles.logoBox}>
-          <Ionicons name="restaurant" size={14} color={WHITE} />
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>Notifications</Text>
+          {orders.length > 0 && (
+            <View style={s.countBadge}>
+              <Text style={s.countTxt}>{orders.length}</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={() => refetch()}>
-          <Ionicons name="refresh" size={18} color={WHITE} />
+        <TouchableOpacity style={s.refreshBtn} onPress={() => refetch()}>
+          <Ionicons name="refresh" size={18} color={C.white} />
         </TouchableOpacity>
       </View>
 
-      {readyOrders.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="notifications-off-outline" size={52} color={MUTED} />
-          <Text style={styles.emptyTitle}>No notifications</Text>
-          <Text style={styles.emptyText}>You're all caught up!</Text>
+      {orders.length === 0 ? (
+        <View style={s.center}>
+          <View style={s.emptyIcon}>
+            <Ionicons name="notifications-off-outline" size={38} color={C.muted} />
+          </View>
+          <Text style={s.emptyTitle}>All caught up!</Text>
+          <Text style={s.emptyBody}>No new notifications right now</Text>
         </View>
       ) : (
         <FlatList
-          data={readyOrders}
+          data={orders}
           keyExtractor={item => String(item.id)}
-          contentContainerStyle={{ padding: 12, paddingBottom: 100 }}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          renderItem={({ item: order }) => {
-            const orderNum = order.orderNumber ?? `ORD-${String(order.id).padStart(4, "0")}`;
+          contentContainerStyle={{ padding: 14, paddingBottom: 110, gap: 10 }}
+          ListHeaderComponent={
+            <Text style={s.sectionHeader}>
+              KITCHEN READY  ·  {orders.length} order{orders.length !== 1 ? "s" : ""}
+            </Text>
+          }
+          renderItem={({ item: o }) => {
+            const orderNum = o.orderNumber ?? `#${String(o.id).padStart(4, "0")}`;
             return (
               <TouchableOpacity
-                style={styles.notifCard}
+                style={s.card}
                 onPress={() => router.push("/ready-items" as any)}
                 activeOpacity={0.8}
               >
-                <View style={styles.notifIcon}>
-                  <Ionicons name="checkmark-circle" size={24} color={SUCCESS} />
+                <View style={s.iconWrap}>
+                  <Ionicons name="checkmark-circle" size={28} color={C.green} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.notifTitle}>Order Ready · {orderNum}</Text>
-                  <Text style={styles.notifBody}>
-                    {order.customerName ?? "Guest"} · Table {order.tableId} · Order is ready to serve
+                  <Text style={s.notifTitle}>Ready to Serve  ·  {orderNum}</Text>
+                  <Text style={s.notifBody}>
+                    {o.customerName ?? "Guest"}  ·  Table {o.tableId}
                   </Text>
+                  <View style={s.readyChip}>
+                    <Text style={s.readyChipTxt}>Tap to mark served →</Text>
+                  </View>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={MUTED} />
+                <Ionicons name="chevron-forward" size={16} color={C.muted} />
               </TouchableOpacity>
             );
           }}
         />
       )}
 
-      {/* Bottom nav */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/history" as any)}>
-          <Text style={styles.navLabel}>History</Text>
-        </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={styles.navItem}>
-          <View style={{ position: "relative" }}>
-            <Text style={[styles.navLabel, { color: "#F5A623" }]}>Notification</Text>
-            {readyOrders.length > 0 && <View style={styles.notifDot} />}
-          </View>
-        </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/ready-items" as any)}>
-          <Text style={styles.navLabel}>Ready item</Text>
-        </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/tables" as any)}>
-          <Text style={styles.navLabel}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav active="notifications" router={router} onLogout={handleLogout} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WHITE },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.card },
+
   header: {
     flexDirection: "row", alignItems: "center",
-    backgroundColor: NAVY, paddingHorizontal: 14, paddingVertical: 12, gap: 8,
+    backgroundColor: C.navy, paddingHorizontal: 16, paddingVertical: 12, gap: 10,
   },
-  logoBox: { width: 28, height: 28, borderRadius: 6, backgroundColor: WHITE + "22", alignItems: "center", justifyContent: "center" },
-  headerTitle: { color: WHITE, fontSize: 16, fontWeight: "700" },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.white + "18", alignItems: "center", justifyContent: "center" },
+  headerCenter: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  headerTitle: { color: C.white, fontSize: 17, fontWeight: "700" },
+  countBadge: { backgroundColor: C.green, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  countTxt: { color: C.white, fontSize: 12, fontWeight: "800" },
+  refreshBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.white + "18", alignItems: "center", justifyContent: "center" },
+
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  emptyTitle: { color: NAVY, fontSize: 18, fontWeight: "700" },
-  emptyText: { color: MUTED, fontSize: 13 },
-  notifCard: {
-    backgroundColor: WHITE, borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER,
-    padding: 14, flexDirection: "row", alignItems: "center", gap: 12,
+  emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: C.light, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  emptyTitle: { color: C.navy, fontSize: 17, fontWeight: "700" },
+  emptyBody: { color: C.muted, fontSize: 13 },
+
+  sectionHeader: { color: C.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.8, marginBottom: 4 },
+
+  card: {
+    backgroundColor: C.white, borderRadius: 14, flexDirection: "row", alignItems: "center",
+    padding: 14, gap: 12,
+    shadowColor: C.navy, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  notifIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: SUCCESS + "18", alignItems: "center", justifyContent: "center" },
-  notifTitle: { color: NAVY, fontSize: 13, fontWeight: "700" },
-  notifBody: { color: MUTED, fontSize: 11, marginTop: 2 },
-  bottomNav: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: NAVY2, paddingVertical: 12, paddingBottom: 18,
-    borderTopWidth: 1, borderTopColor: DARK_BORDER,
-  },
-  navItem: { flex: 1, alignItems: "center" },
-  navLabel: { color: WHITE, fontSize: 12, fontWeight: "600" },
-  navDivider: { width: 1, height: 18, backgroundColor: WHITE + "33" },
-  notifDot: {
-    position: "absolute", top: -2, right: -8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: SUCCESS,
-  },
+  iconWrap: { width: 50, height: 50, borderRadius: 25, backgroundColor: C.greenBg, alignItems: "center", justifyContent: "center" },
+  notifTitle: { color: C.navy, fontSize: 14, fontWeight: "700" },
+  notifBody: { color: C.muted, fontSize: 12, marginTop: 3 },
+  readyChip: { marginTop: 6, backgroundColor: C.greenBg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start" },
+  readyChipTxt: { color: C.green, fontSize: 11, fontWeight: "700" },
 });

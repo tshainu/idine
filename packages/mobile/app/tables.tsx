@@ -10,53 +10,63 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "../lib/api";
 import { loadUser, clearUser, WaiterUser } from "../lib/auth";
 
-const NAVY = "#0D1B6E";
-const NAVY2 = "#162280";
-const WHITE = "#FFFFFF";
-const LIGHT = "#E8ECF8";
-const MUTED = "#8891B8";
-const BORDER = "#2A3A9A";
-const SUCCESS = "#22C55E";
-const WARNING = "#F59E0B";
-const DANGER = "#EF4444";
-const GOLD = "#F5A623";
+// ── Design tokens ────────────────────────────────────────────────
+const C = {
+  navy:    "#0D1B6E",
+  navy2:   "#162280",
+  navy3:   "#0A1255",
+  accent:  "#4F6EF7",
+  white:   "#FFFFFF",
+  light:   "#EEF0FB",
+  muted:   "#8891B8",
+  red:     "#EF4444",
+  green:   "#22C55E",
+  amber:   "#F59E0B",
+  purple:  "#A855F7",
+  gold:    "#F5A623",
+  card:    "#F7F8FE",
+  border:  "#DDE1F5",
+  navBg:   "#111A5C",
+};
 
 const STATUS_COLORS: Record<string, string> = {
-  available: SUCCESS,
-  occupied: WARNING,
-  reserved: "#A855F7",
-  cleaning: DANGER,
+  available: C.green,
+  occupied:  C.amber,
+  reserved:  C.purple,
+  cleaning:  C.red,
 };
-
 const STATUS_LABELS: Record<string, string> = {
   available: "Free",
-  occupied: "Occupied",
-  reserved: "Reserved",
-  cleaning: "Cleaning",
+  occupied:  "Occupied",
+  reserved:  "Reserved",
+  cleaning:  "Cleaning",
+};
+const STATUS_BG: Record<string, string> = {
+  available: "#DCFCE7",
+  occupied:  "#FEF3C7",
+  reserved:  "#F3E8FF",
+  cleaning:  "#FEE2E2",
 };
 
-function getDateTime() {
+function getTime() {
   const now = new Date();
-  const d = String(now.getDate()).padStart(2, "0");
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const y = now.getFullYear();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  return `${d}.${m}.${y} ${hh}:${mm}`;
+  return now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+function getDate() {
+  const now = new Date();
+  return now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function TablesScreen() {
   const router = useRouter();
   const [user, setUser] = useState<WaiterUser | null>(null);
-  const [dateTime, setDateTime] = useState(getDateTime());
+  const [time, setTime] = useState(getTime());
+  const [activeTab, setActiveTab] = useState<string>("all");
 
   useEffect(() => {
-    loadUser().then((u) => {
-      if (!u) { router.replace("/"); return; }
-      setUser(u);
-    });
-    const interval = setInterval(() => setDateTime(getDateTime()), 30000);
-    return () => clearInterval(interval);
+    loadUser().then((u) => { if (!u) router.replace("/"); else setUser(u); });
+    const iv = setInterval(() => setTime(getTime()), 30000);
+    return () => clearInterval(iv);
   }, []);
 
   const branchId = user?.branchId ?? 1;
@@ -73,105 +83,142 @@ export default function TablesScreen() {
   });
 
   const tables: any[] = Array.isArray(tablesData) ? tablesData : [];
-  const freeTables = tables.filter(t => t.status === "available").length;
-  const busyTables = tables.filter(t => t.status === "occupied").length;
+
+  const statuses = ["all", "available", "occupied", "reserved", "cleaning"];
+  const counts: Record<string, number> = { all: tables.length };
+  for (const t of tables) counts[t.status] = (counts[t.status] ?? 0) + 1;
+
+  const filtered = activeTab === "all" ? tables : tables.filter(t => t.status === activeTab);
 
   const grouped: Record<string, any[]> = {};
-  for (const t of tables) {
-    const zone = t.zone || "Main";
-    if (!grouped[zone]) grouped[zone] = [];
-    grouped[zone].push(t);
+  for (const t of filtered) {
+    const z = t.zone || "Main Hall";
+    if (!grouped[z]) grouped[z] = [];
+    grouped[z].push(t);
   }
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert("Logout", "Sign out of your session?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout", style: "destructive",
-        onPress: async () => { await clearUser(); router.replace("/"); }
-      },
+      { text: "Logout", style: "destructive", onPress: async () => { await clearUser(); router.replace("/"); } },
     ]);
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
+    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.logoBox}>
-            <Ionicons name="restaurant" size={18} color={WHITE} />
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <View style={s.headerLeft}>
+          <View style={s.logoCircle}>
+            <Ionicons name="restaurant" size={15} color={C.white} />
           </View>
-          <Text style={styles.brandName}>AXIS RESTAURANT</Text>
+          <View>
+            <Text style={s.brand}>AXIS RESTAURANT</Text>
+            <Text style={s.date}>{getDate()}</Text>
+          </View>
         </View>
-        <View style={styles.headerRight}>
-          <Text style={styles.waiterName}>{user?.name ?? "Waiter"}</Text>
-          <Text style={styles.waiterRole}>{user?.role ?? "Waiter"}</Text>
-          <Text style={styles.dateTime}>{dateTime}</Text>
+        <View style={s.headerRight}>
+          <View style={s.avatarWrap}>
+            <Ionicons name="person" size={14} color={C.accent} />
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={s.waiterName}>{user?.name ?? "Waiter"}</Text>
+            <Text style={s.waiterTime}>{time}</Text>
+          </View>
         </View>
       </View>
 
-      {/* Stats bar */}
-      <View style={styles.statsBar}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNum}>{tables.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={[styles.statDivider]} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statNum, { color: SUCCESS }]}>{freeTables}</Text>
-          <Text style={styles.statLabel}>Free</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statNum, { color: WARNING }]}>{busyTables}</Text>
-          <Text style={styles.statLabel}>Occupied</Text>
-        </View>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()}>
-          <Ionicons name="refresh" size={16} color={NAVY} />
+      {/* ── Stats row ── */}
+      <View style={s.statsRow}>
+        {[
+          { label: "Total", val: tables.length, color: C.accent },
+          { label: "Free", val: counts.available ?? 0, color: C.green },
+          { label: "Busy", val: counts.occupied ?? 0, color: C.amber },
+          { label: "Reserved", val: counts.reserved ?? 0, color: C.purple },
+        ].map((st, i) => (
+          <View key={i} style={s.statItem}>
+            <Text style={[s.statNum, { color: st.color }]}>{st.val}</Text>
+            <Text style={s.statLabel}>{st.label}</Text>
+          </View>
+        ))}
+        <TouchableOpacity style={s.refreshBtn} onPress={() => refetch()}>
+          <Ionicons name="refresh" size={17} color={C.accent} />
         </TouchableOpacity>
       </View>
 
+      {/* ── Tab filter ── */}
+      <View style={s.tabBar}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={statuses}
+          keyExtractor={i => i}
+          contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 10 }}
+          renderItem={({ item: st }) => (
+            <TouchableOpacity
+              style={[s.tabChip, activeTab === st && s.tabChipActive]}
+              onPress={() => setActiveTab(st)}
+            >
+              <Text style={[s.tabChipTxt, activeTab === st && s.tabChipTxtActive]}>
+                {st === "all" ? "All" : STATUS_LABELS[st] ?? st}
+                {counts[st] !== undefined ? ` (${counts[st]})` : ""}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
+      {/* ── Table grid ── */}
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={WHITE} />
-          <Text style={styles.loadText}>Loading tables...</Text>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={C.accent} />
+          <Text style={s.loadTxt}>Loading tables…</Text>
         </View>
       ) : (
         <FlatList
           data={Object.entries(grouped)}
-          keyExtractor={([zone]) => zone}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          keyExtractor={([z]) => z}
+          contentContainerStyle={{ padding: 14, paddingBottom: 110 }}
           renderItem={({ item: [zone, zoneTables] }) => (
-            <View style={{ marginBottom: 20 }}>
-              <Text style={styles.zoneLabel}>{zone}</Text>
-              <View style={styles.tableGrid}>
-                {zoneTables.map((table: any) => {
-                  const color = STATUS_COLORS[table.status] || MUTED;
-                  const isCleaning = table.status === "cleaning";
+            <View style={{ marginBottom: 22 }}>
+              <View style={s.zoneRow}>
+                <View style={s.zoneDot} />
+                <Text style={s.zoneLabel}>{zone}</Text>
+                <View style={s.zoneLine} />
+              </View>
+              <View style={s.tableGrid}>
+                {zoneTables.map((t: any) => {
+                  const color = STATUS_COLORS[t.status] ?? C.muted;
+                  const bg    = STATUS_BG[t.status] ?? C.light;
+                  const locked = t.status === "cleaning";
                   return (
                     <TouchableOpacity
-                      key={table.id}
-                      style={[styles.tableCard, { borderColor: color + "66" }, isCleaning && { opacity: 0.5 }]}
+                      key={t.id}
+                      style={[s.tableCard, locked && s.tableCardDisabled]}
                       onPress={() => {
-                        if (!isCleaning) {
-                          router.push(`/waiter-order?tableId=${table.id}&name=${encodeURIComponent(table.name)}&status=${table.status}` as any);
-                        }
+                        if (!locked)
+                          router.push(`/waiter-order?tableId=${t.id}&name=${encodeURIComponent(t.name)}&status=${t.status}` as any);
                       }}
                       activeOpacity={0.75}
-                      disabled={isCleaning}
+                      disabled={locked}
                     >
-                      <View style={[styles.statusDot, { backgroundColor: color }]} />
-                      <Text style={styles.tableName}>{table.name}</Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                        <Ionicons name="people-outline" size={11} color={MUTED} />
-                        <Text style={styles.tableCapacity}>{table.capacity}</Text>
+                      {/* Color bar */}
+                      <View style={[s.tableColorBar, { backgroundColor: color }]} />
+                      <View style={s.tableBody}>
+                        <Text style={s.tableName}>{t.name}</Text>
+                        <View style={[s.tableStatusBadge, { backgroundColor: bg }]}>
+                          <View style={[s.tableDot, { backgroundColor: color }]} />
+                          <Text style={[s.tableStatusTxt, { color }]}>
+                            {STATUS_LABELS[t.status] ?? t.status}
+                          </Text>
+                        </View>
+                        <View style={s.tableCapRow}>
+                          <Ionicons name="people-outline" size={12} color={C.muted} />
+                          <Text style={s.tableCap}>{t.capacity}</Text>
+                        </View>
                       </View>
-                      <Text style={[styles.tableStatus, { color }]}>
-                        {STATUS_LABELS[table.status] || table.status}
-                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -181,81 +228,140 @@ export default function TablesScreen() {
         />
       )}
 
-      {/* Bottom nav */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/history" as any)}>
-          <Ionicons name="time-outline" size={20} color={MUTED} />
-          <Text style={styles.navLabel}>History</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/notifications" as any)}>
-          <View style={{ position: "relative" }}>
-            <Ionicons name="notifications-outline" size={20} color={MUTED} />
-            <View style={styles.notifDot} />
-          </View>
-          <Text style={styles.navLabel}>Notification</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/ready-items" as any)}>
-          <Ionicons name="checkmark-circle-outline" size={20} color={MUTED} />
-          <Text style={styles.navLabel}>Ready item</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color={MUTED} />
-          <Text style={styles.navLabel}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      {/* ── Bottom nav ── */}
+      <BottomNav active="tables" router={router} onLogout={handleLogout} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WHITE },
+// ── Shared bottom nav ─────────────────────────────────────────────
+export function BottomNav({ active, router, onLogout }: {
+  active: "tables" | "history" | "notifications" | "ready" | "order";
+  router: any;
+  onLogout?: () => void;
+}) {
+  const items = [
+    { key: "history",       icon: "time-outline",              label: "History",        route: "/history" },
+    { key: "notifications", icon: "notifications-outline",     label: "Alerts",         route: "/notifications" },
+    { key: "ready",         icon: "checkmark-circle-outline",  label: "Ready",          route: "/ready-items" },
+    { key: "tables",        icon: "grid-outline",              label: "Tables",         route: "/tables" },
+  ] as const;
+
+  return (
+    <View style={nav.bar}>
+      {items.map(item => {
+        const isActive = active === item.key;
+        return (
+          <TouchableOpacity
+            key={item.key}
+            style={nav.item}
+            onPress={() => item.key === "tables" && onLogout ? undefined : router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[nav.iconWrap, isActive && nav.iconWrapActive]}>
+              <Ionicons name={item.icon as any} size={21} color={isActive ? C.white : C.muted} />
+            </View>
+            <Text style={[nav.label, isActive && nav.labelActive]}>{item.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+      <TouchableOpacity style={nav.item} onPress={onLogout} activeOpacity={0.7}>
+        <View style={nav.iconWrap}>
+          <Ionicons name="log-out-outline" size={21} color={C.muted} />
+        </View>
+        <Text style={nav.label}>Logout</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const nav = StyleSheet.create({
+  bar: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    flexDirection: "row",
+    backgroundColor: C.navBg,
+    paddingTop: 10, paddingBottom: 22,
+    borderTopWidth: 1, borderTopColor: "#1E2D8A",
+  },
+  item: { flex: 1, alignItems: "center", gap: 3 },
+  iconWrap: { width: 40, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  iconWrapActive: { backgroundColor: C.accent },
+  label: { color: C.muted, fontSize: 10, fontWeight: "600" },
+  labelActive: { color: C.white },
+});
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.card },
+
   header: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: NAVY, borderBottomWidth: 1, borderBottomColor: BORDER,
+    backgroundColor: C.navy, paddingHorizontal: 16, paddingVertical: 12,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  logoBox: { width: 34, height: 34, borderRadius: 8, backgroundColor: WHITE + "20", alignItems: "center", justifyContent: "center" },
-  brandName: { color: WHITE, fontSize: 15, fontWeight: "800", letterSpacing: 0.5 },
-  headerRight: { alignItems: "flex-end" },
-  waiterName: { color: WHITE, fontSize: 13, fontWeight: "700" },
-  waiterRole: { color: MUTED, fontSize: 11 },
-  dateTime: { color: MUTED, fontSize: 11 },
-  statsBar: {
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoCircle: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.accent, alignItems: "center", justifyContent: "center",
+  },
+  brand: { color: C.white, fontSize: 14, fontWeight: "800", letterSpacing: 1 },
+  date: { color: C.muted, fontSize: 11, marginTop: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  avatarWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: C.light, alignItems: "center", justifyContent: "center",
+  },
+  waiterName: { color: C.white, fontSize: 13, fontWeight: "700" },
+  waiterTime: { color: C.muted, fontSize: 11 },
+
+  statsRow: {
     flexDirection: "row", alignItems: "center",
-    backgroundColor: WHITE, paddingHorizontal: 16, paddingVertical: 10,
-    gap: 16,
+    backgroundColor: C.white, paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+    gap: 4,
   },
-  statItem: { alignItems: "center" },
-  statNum: { color: NAVY, fontSize: 18, fontWeight: "800" },
-  statLabel: { color: MUTED, fontSize: 10, fontWeight: "600" },
-  statDivider: { width: 1, height: 28, backgroundColor: BORDER + "44" },
-  refreshBtn: { backgroundColor: LIGHT, borderRadius: 20, padding: 8 },
+  statItem: { flex: 1, alignItems: "center" },
+  statNum: { fontSize: 20, fontWeight: "800" },
+  statLabel: { color: C.muted, fontSize: 10, fontWeight: "600", marginTop: 1 },
+  refreshBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.light, alignItems: "center", justifyContent: "center",
+  },
+
+  tabBar: { backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
+  tabChip: {
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.card,
+  },
+  tabChipActive: { backgroundColor: C.navy, borderColor: C.navy },
+  tabChipTxt: { color: C.muted, fontSize: 12, fontWeight: "600" },
+  tabChipTxtActive: { color: C.white },
+
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  loadText: { color: MUTED, fontSize: 13 },
-  zoneLabel: { color: MUTED, fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 },
+  loadTxt: { color: C.muted, fontSize: 13 },
+
+  zoneRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  zoneDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
+  zoneLabel: { color: C.navy, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 },
+  zoneLine: { flex: 1, height: 1, backgroundColor: C.border },
+
   tableGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tableCard: {
-    width: "30%", minWidth: 90,
-    backgroundColor: WHITE,
-    borderRadius: 12, borderWidth: 2,
-    padding: 12, alignItems: "center", gap: 4,
+    width: "30%", minWidth: 96,
+    backgroundColor: C.white, borderRadius: 14,
+    overflow: "hidden",
+    shadowColor: C.navy, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 2 },
-  tableName: { color: NAVY, fontSize: 15, fontWeight: "800" },
-  tableCapacity: { color: MUTED, fontSize: 11 },
-  tableStatus: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  bottomNav: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    backgroundColor: NAVY2,
-    flexDirection: "row",
-    paddingVertical: 10, paddingBottom: 20,
-    borderTopWidth: 1, borderTopColor: BORDER,
+  tableCardDisabled: { opacity: 0.45 },
+  tableColorBar: { height: 5 },
+  tableBody: { padding: 10, alignItems: "center", gap: 6 },
+  tableName: { color: C.navy, fontSize: 16, fontWeight: "800" },
+  tableStatusBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
   },
-  navItem: { flex: 1, alignItems: "center", gap: 2 },
-  navLabel: { color: MUTED, fontSize: 10, fontWeight: "600" },
-  notifDot: {
-    position: "absolute", top: -1, right: -1,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: SUCCESS,
-  },
+  tableDot: { width: 6, height: 6, borderRadius: 3 },
+  tableStatusTxt: { fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  tableCapRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  tableCap: { color: C.muted, fontSize: 11 },
 });

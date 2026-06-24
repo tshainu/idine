@@ -1,30 +1,38 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  StatusBar, TextInput, KeyboardAvoidingView, Platform, ScrollView,
-  Image,
+  StatusBar, Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { loadUser, saveUser, WaiterUser } from "../lib/auth";
+import { Ionicons } from "@expo/vector-icons";
 
-const NAVY = "#0D1B6E";
-const NAVY2 = "#162280";
-const WHITE = "#FFFFFF";
-const LIGHT = "#E8ECF8";
-const MUTED = "#8891B8";
-const RED = "#E53935";
-const SUCCESS = "#22C55E";
+// ── Design tokens ────────────────────────────────────────────────
+const C = {
+  navy:    "#0D1B6E",
+  navy2:   "#162280",
+  navy3:   "#0A1255",
+  accent:  "#4F6EF7",
+  white:   "#FFFFFF",
+  light:   "#EEF0FB",
+  muted:   "#8891B8",
+  red:     "#EF4444",
+  green:   "#22C55E",
+  gold:    "#F5A623",
+  card:    "#F7F8FE",
+  border:  "#DDE1F5",
+};
 
 export default function LoginScreen() {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(true);
+  const shakeAnim = new Animated.Value(0);
 
-  // Auto-login if session exists
   useEffect(() => {
     loadUser().then((u) => {
       if (u) router.replace("/tables" as any);
@@ -32,11 +40,18 @@ export default function LoginScreen() {
     });
   }, []);
 
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
   const loginMutation = useMutation({
     mutationFn: async (pinVal: string) => {
-      const res = await api.users.login.$post({
-        json: { pin: pinVal, branchId: 1 },
-      });
+      const res = await api.users.login.$post({ json: { pin: pinVal, branchId: 1 } });
       if (!res.ok) throw new Error("Invalid PIN");
       return res.json() as Promise<{ user: WaiterUser }>;
     },
@@ -45,120 +60,139 @@ export default function LoginScreen() {
       router.replace("/tables" as any);
     },
     onError: () => {
-      setError("Invalid PIN. Try again.");
+      setError("Incorrect PIN. Try again.");
       setPin("");
+      shake();
     },
   });
 
-  const handlePinPress = (digit: string) => {
+  const handleDigit = (d: string) => {
+    if (loginMutation.isPending) return;
     if (pin.length >= 6) return;
-    const newPin = pin + digit;
-    setPin(newPin);
+    const next = pin + d;
+    setPin(next);
     setError("");
-    if (newPin.length >= 4) {
-      // Try login after 4+ digits
-      setTimeout(() => loginMutation.mutate(newPin), 100);
-    }
+    if (next.length >= 4) setTimeout(() => loginMutation.mutate(next), 120);
   };
 
-  const handleDelete = () => {
-    setPin(prev => prev.slice(0, -1));
+  const handleDel = () => {
+    setPin(p => p.slice(0, -1));
     setError("");
   };
 
   if (checking) {
     return (
-      <View style={{ flex: 1, backgroundColor: WHITE, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={NAVY} />
+      <View style={{ flex: 1, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={C.accent} />
       </View>
     );
   }
 
+  const PAD = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","del"]];
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          {/* Logo / Brand */}
-          <View style={styles.brandRow}>
-            <View style={styles.logoBox}>
-              <Text style={styles.logoIcon}>🍽️</Text>
-            </View>
-            <Text style={styles.brandName}>AXIS RESTAURANT</Text>
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
+
+      {/* ── Brand ── */}
+      <View style={s.brandWrap}>
+        <View style={s.logoCircle}>
+          <Ionicons name="restaurant" size={28} color={C.white} />
+        </View>
+        <Text style={s.brandName}>AXIS RESTAURANT</Text>
+        <Text style={s.brandSub}>Waiter Portal</Text>
+      </View>
+
+      {/* ── Card ── */}
+      <View style={s.card}>
+        <Text style={s.cardTitle}>Enter your PIN</Text>
+
+        {/* Dots */}
+        <Animated.View style={[s.dots, { transform: [{ translateX: shakeAnim }] }]}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <View key={i} style={[s.dot, i < pin.length && s.dotFilled]} />
+          ))}
+        </Animated.View>
+
+        {error ? (
+          <View style={s.errorRow}>
+            <Ionicons name="alert-circle" size={14} color={C.red} />
+            <Text style={s.errorTxt}>{error}</Text>
           </View>
+        ) : <View style={{ height: 22 }} />}
 
-          <Text style={styles.subtitle}>Waiter Login</Text>
-          <Text style={styles.hint}>Enter your PIN to continue</Text>
-
-          {/* PIN dots */}
-          <View style={styles.pinDots}>
-            {[0, 1, 2, 3, 4, 5].map(i => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  i < pin.length && styles.dotFilled,
-                ]}
-              />
-            ))}
-          </View>
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {/* Number pad */}
-          <View style={styles.numPad}>
-            {[["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]].map((row, ri) => (
-              <View key={ri} style={styles.numRow}>
-                {row.map((digit, di) => (
-                  <TouchableOpacity
-                    key={di}
-                    style={[styles.numBtn, digit === "" && { opacity: 0 }]}
-                    onPress={() => digit === "⌫" ? handleDelete() : digit && handlePinPress(digit)}
-                    disabled={loginMutation.isPending}
-                    activeOpacity={0.7}
-                  >
-                    {digit === "⌫"
-                      ? <Text style={styles.numBtnText}>⌫</Text>
-                      : <Text style={styles.numBtnText}>{digit}</Text>
-                    }
+        {/* Numpad */}
+        <View style={s.pad}>
+          {PAD.map((row, ri) => (
+            <View key={ri} style={s.padRow}>
+              {row.map((d, di) =>
+                d === "" ? <View key={di} style={s.padKey} /> :
+                d === "del" ? (
+                  <TouchableOpacity key={di} style={[s.padKey, s.padKeyDel]} onPress={handleDel} activeOpacity={0.7}>
+                    <Ionicons name="backspace-outline" size={22} color={C.muted} />
                   </TouchableOpacity>
-                ))}
-              </View>
-            ))}
-          </View>
+                ) : (
+                  <TouchableOpacity key={di} style={s.padKey} onPress={() => handleDigit(d)} activeOpacity={0.7}>
+                    <Text style={s.padKeyTxt}>{d}</Text>
+                  </TouchableOpacity>
+                )
+              )}
+            </View>
+          ))}
+        </View>
 
-          {loginMutation.isPending && (
-            <ActivityIndicator color={WHITE} style={{ marginTop: 16 }} />
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {loginMutation.isPending && (
+          <View style={s.loadRow}>
+            <ActivityIndicator color={C.accent} size="small" />
+            <Text style={s.loadTxt}>Authenticating…</Text>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WHITE },
-  container: { flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingVertical: 40 },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 32 },
-  logoBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: WHITE + "22", alignItems: "center", justifyContent: "center" },
-  logoIcon: { fontSize: 24 },
-  brandName: { color: WHITE, fontSize: 18, fontWeight: "800", letterSpacing: 1 },
-  subtitle: { color: WHITE, fontSize: 24, fontWeight: "700", marginBottom: 6 },
-  hint: { color: MUTED, fontSize: 14, marginBottom: 32 },
-  pinDots: { flexDirection: "row", gap: 12, marginBottom: 12 },
-  dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: WHITE + "55", backgroundColor: "transparent" },
-  dotFilled: { backgroundColor: WHITE, borderColor: WHITE },
-  errorText: { color: RED, fontSize: 13, marginBottom: 16, textAlign: "center" },
-  numPad: { gap: 14, marginTop: 8 },
-  numRow: { flexDirection: "row", gap: 20 },
-  numBtn: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: NAVY2,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: WHITE + "22",
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+
+  brandWrap: { alignItems: "center", marginBottom: 32 },
+  logoCircle: {
+    width: 68, height: 68, borderRadius: 34,
+    backgroundColor: C.accent, alignItems: "center", justifyContent: "center",
+    marginBottom: 14,
+    shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
-  numBtnText: { color: WHITE, fontSize: 24, fontWeight: "600" },
+  brandName: { color: C.white, fontSize: 20, fontWeight: "800", letterSpacing: 2 },
+  brandSub: { color: C.muted, fontSize: 13, marginTop: 2, letterSpacing: 0.5 },
+
+  card: {
+    backgroundColor: C.white, borderRadius: 24, paddingHorizontal: 28, paddingVertical: 32,
+    width: "88%", alignItems: "center",
+    shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  cardTitle: { color: C.navy, fontSize: 17, fontWeight: "700", marginBottom: 22 },
+
+  dots: { flexDirection: "row", gap: 12, marginBottom: 4 },
+  dot: {
+    width: 14, height: 14, borderRadius: 7,
+    borderWidth: 2, borderColor: C.border, backgroundColor: "transparent",
+  },
+  dotFilled: { backgroundColor: C.accent, borderColor: C.accent },
+
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, height: 22 },
+  errorTxt: { color: C.red, fontSize: 12, fontWeight: "600" },
+
+  pad: { gap: 12, marginTop: 8 },
+  padRow: { flexDirection: "row", gap: 14 },
+  padKey: {
+    width: 74, height: 74, borderRadius: 37,
+    backgroundColor: C.light, alignItems: "center", justifyContent: "center",
+  },
+  padKeyDel: { backgroundColor: C.card },
+  padKeyTxt: { color: C.navy, fontSize: 26, fontWeight: "600" },
+
+  loadRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
+  loadTxt: { color: C.muted, fontSize: 13 },
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, StatusBar, ScrollView, TextInput,
@@ -11,21 +11,26 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "../lib/api";
 import { loadUser, WaiterUser } from "../lib/auth";
 
-const NAVY = "#0D1B6E";
-const NAVY2 = "#162280";
-const NAVY3 = "#0A1255";
-const WHITE = "#FFFFFF";
-const LIGHT = "#E8ECF8";
-const MUTED = "#8891B8";
-const BORDER = "#C5CCE8";
-const DARK_BORDER = "#2A3A9A";
-const SUCCESS = "#22C55E";
-const DANGER = "#EF4444";
-const RED = "#E53935";
-const GOLD = "#F5A623";
+// ── Design tokens ────────────────────────────────────────────────
+const C = {
+  navy:    "#0D1B6E",
+  navy2:   "#162280",
+  navy3:   "#0A1255",
+  accent:  "#4F6EF7",
+  white:   "#FFFFFF",
+  light:   "#EEF0FB",
+  muted:   "#8891B8",
+  red:     "#EF4444",
+  green:   "#22C55E",
+  amber:   "#F59E0B",
+  gold:    "#F5A623",
+  card:    "#F7F8FE",
+  border:  "#DDE1F5",
+  navBg:   "#111A5C",
+};
 
 type Variation = { id: number; name: string; code?: string; priceDineIn: number };
-type CartItem = {
+type CartItem  = {
   menuItemId: number;
   name: string;
   price: number;
@@ -35,19 +40,12 @@ type CartItem = {
   variationName?: string;
 };
 
-function getDateTime() {
-  const now = new Date();
-  const d = String(now.getDate()).padStart(2, "0");
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const y = now.getFullYear();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  return `${d}.${m}.${y} ${hh}:${mm}`;
-}
-
-// Cart key: menuItemId + variationId
 function cartKey(menuItemId: number, variationId?: number) {
   return `${menuItemId}_${variationId ?? "base"}`;
+}
+function getTime() {
+  const n = new Date();
+  return n.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function WaiterOrderScreen() {
@@ -58,16 +56,17 @@ export default function WaiterOrderScreen() {
   const qc = useQueryClient();
 
   const [user, setUser] = useState<WaiterUser | null>(null);
-  const [dateTime, setDateTime] = useState(getDateTime());
+  const [time, setTime] = useState(getTime());
   const [cart, setCart] = useState<Record<string, CartItem>>({});
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [searchText, setSearchText] = useState("");
+  const [selectedCat, setSelectedCat] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [showCart, setShowCart] = useState(true);
 
   useEffect(() => {
     loadUser().then(setUser);
-    const interval = setInterval(() => setDateTime(getDateTime()), 30000);
-    return () => clearInterval(interval);
+    const iv = setInterval(() => setTime(getTime()), 30000);
+    return () => clearInterval(iv);
   }, []);
 
   // Categories
@@ -83,59 +82,42 @@ export default function WaiterOrderScreen() {
 
   // Menu items
   const { data: menuData, isLoading: menuLoading } = useQuery({
-    queryKey: ["menu-items", selectedCategory],
+    queryKey: ["menu-items", selectedCat],
     queryFn: async () => {
       const res = await api["menu-items"].$get({
-        query: selectedCategory ? { categoryId: String(selectedCategory) } : {},
+        query: selectedCat ? { categoryId: String(selectedCat) } : {},
       });
       const json = await res.json() as any;
       return json.menuItems ?? [];
     },
   });
   const allItems: any[] = menuData ?? [];
-
-  const filteredItems = allItems.filter(item =>
-    item.isActive !== false &&
-    (searchText === "" || item.name.toLowerCase().includes(searchText.toLowerCase()))
+  const filteredItems = allItems.filter(i =>
+    i.isActive !== false &&
+    (search === "" || i.name.toLowerCase().includes(search.toLowerCase()))
   );
 
   // Cart helpers
   const cartList = Object.values(cart);
   const totalQty = cartList.reduce((s, c) => s + c.qty, 0);
+  const totalAmt = cartList.reduce((s, c) => s + c.price * c.qty, 0);
 
   function addItem(item: any, variationId?: number, variationName?: string, variationPrice?: number) {
     const price = variationPrice ?? Number(item.priceDineIn ?? item.price ?? 0);
     const key = cartKey(item.id, variationId);
     setCart(prev => {
-      const existing = prev[key];
-      if (existing) {
-        return { ...prev, [key]: { ...existing, qty: existing.qty + 1 } };
-      }
-      return {
-        ...prev,
-        [key]: {
-          menuItemId: item.id,
-          name: item.name,
-          price,
-          qty: 1,
-          notes: "",
-          variationId,
-          variationName,
-        },
-      };
+      const ex = prev[key];
+      if (ex) return { ...prev, [key]: { ...ex, qty: ex.qty + 1 } };
+      return { ...prev, [key]: { menuItemId: item.id, name: item.name, price, qty: 1, notes: "", variationId, variationName } };
     });
   }
 
   function removeItem(key: string) {
     setCart(prev => {
-      const existing = prev[key];
-      if (!existing) return prev;
-      if (existing.qty <= 1) {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      return { ...prev, [key]: { ...existing, qty: existing.qty - 1 } };
+      const ex = prev[key];
+      if (!ex) return prev;
+      if (ex.qty <= 1) { const n = { ...prev }; delete n[key]; return n; }
+      return { ...prev, [key]: { ...ex, qty: ex.qty - 1 } };
     });
   }
 
@@ -143,58 +125,34 @@ export default function WaiterOrderScreen() {
     return cart[cartKey(menuItemId, variationId)]?.qty ?? 0;
   }
 
-  function resetCart() {
-    Alert.alert("Reset", "Clear all items?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Reset", style: "destructive", onPress: () => setCart({}) },
-    ]);
-  }
-
-  // Place order (send KOT)
+  // Place order
   const placeOrder = useMutation({
     mutationFn: async () => {
       if (cartList.length === 0) throw new Error("Cart is empty");
-
-      // Create order
       const orderRes = await api.orders.$post({
         json: {
-          tableId: Number(tableId),
-          branchId: user?.branchId ?? 1,
+          tableId: Number(tableId), branchId: user?.branchId ?? 1,
           customerName: customerName || `Table ${tableName}`,
-          coverCount: 1,
-          status: "pending",
-          source: "waiter",
-          waiterId: user?.id,
+          coverCount: 1, status: "pending", source: "waiter", waiterId: user?.id,
         },
       });
-      const orderJson = await orderRes.json() as any;
-      const orderId = orderJson.order?.id ?? orderJson.id;
-
-      // Add items
+      const oj = await orderRes.json() as any;
+      const orderId = oj.order?.id ?? oj.id;
       await api["order-items"].bulk.$post({
         json: {
           items: cartList.map(c => ({
-            orderId,
-            menuItemId: c.menuItemId,
-            name: c.variationName ? c.name + ' (' + c.variationName + ')' : c.name,
-            price: c.price,
-            qty: c.qty,
+            orderId, menuItemId: c.menuItemId,
+            name: c.variationName ? `${c.name} (${c.variationName})` : c.name,
+            price: c.price, qty: c.qty,
           })),
         },
       });
-
       return orderId;
     },
-    onSuccess: (orderId) => {
-      Alert.alert("Order Placed ✅", `KOT sent to kitchen.`, [
-        {
-          text: "New Order",
-          onPress: () => { setCart({}); setCustomerName(""); qc.invalidateQueries({ queryKey: ["tables"] }); },
-        },
-        {
-          text: "Back to Tables",
-          onPress: () => { setCart({}); qc.invalidateQueries({ queryKey: ["tables"] }); router.back(); },
-        },
+    onSuccess: () => {
+      Alert.alert("Order Placed ✅", "KOT sent to kitchen.", [
+        { text: "New Order", onPress: () => { setCart({}); setCustomerName(""); qc.invalidateQueries({ queryKey: ["tables"] }); } },
+        { text: "Back", onPress: () => { setCart({}); qc.invalidateQueries({ queryKey: ["tables"] }); router.back(); } },
       ]);
     },
     onError: (e: any) => Alert.alert("Error", e?.message ?? "Failed to place order"),
@@ -206,448 +164,441 @@ export default function WaiterOrderScreen() {
       if (cartList.length === 0) throw new Error("Cart is empty");
       const orderRes = await api.orders.$post({
         json: {
-          tableId: Number(tableId),
-          branchId: user?.branchId ?? 1,
+          tableId: Number(tableId), branchId: user?.branchId ?? 1,
           customerName: customerName || `Table ${tableName}`,
-          coverCount: 1,
-          status: "hold",
-          source: "waiter",
-          waiterId: user?.id,
+          coverCount: 1, status: "hold", source: "waiter", waiterId: user?.id,
         },
       });
-      const orderJson = await orderRes.json() as any;
-      const orderId = orderJson.order?.id ?? orderJson.id;
+      const oj = await orderRes.json() as any;
+      const orderId = oj.order?.id ?? oj.id;
       await api["order-items"].bulk.$post({
         json: {
           items: cartList.map(c => ({
-            orderId,
-            menuItemId: c.menuItemId,
-            name: c.variationName ? c.name + ' (' + c.variationName + ')' : c.name,
-            price: c.price,
-            qty: c.qty,
+            orderId, menuItemId: c.menuItemId,
+            name: c.variationName ? `${c.name} (${c.variationName})` : c.name,
+            price: c.price, qty: c.qty,
           })),
         },
       });
       return orderId;
     },
-    onSuccess: () => {
-      Alert.alert("Order On Hold", "Order saved as held.", [
-        { text: "OK", onPress: () => { setCart({}); setCustomerName(""); } },
-      ]);
-    },
-    onError: (e: any) => Alert.alert("Error", e?.message ?? "Failed to hold order"),
+    onSuccess: () => Alert.alert("On Hold", "Order saved.", [
+      { text: "OK", onPress: () => { setCart({}); setCustomerName(""); } },
+    ]),
+    onError: (e: any) => Alert.alert("Error", e?.message ?? "Failed"),
   });
 
-  const isLoading = placeOrder.isPending || holdOrder.isPending;
+  const busy = placeOrder.isPending || holdOrder.isPending;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
+    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 6 }}>
-            <Ionicons name="arrow-back" size={20} color={WHITE} />
-          </TouchableOpacity>
-          <View style={styles.logoBox}>
-            <Ionicons name="restaurant" size={14} color={WHITE} />
-          </View>
-          <Text style={styles.brandName}>AXIS RESTAURANT</Text>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Ionicons name="arrow-back" size={20} color={C.white} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={s.headerTitle}>Table {tableName}</Text>
+          <Text style={s.headerSub}>{user?.name ?? "Waiter"}  ·  {time}</Text>
         </View>
-        <View style={styles.headerRight}>
-          <Text style={styles.waiterName}>{user?.name ?? "Waiter"}</Text>
-          <Text style={styles.waiterRole}>{user?.role ?? "Waiter"}</Text>
-          <Text style={styles.dateTime}>{dateTime}</Text>
-        </View>
+        {/* Cart badge */}
+        <TouchableOpacity style={s.cartBadgeBtn} onPress={() => setShowCart(v => !v)}>
+          <Ionicons name="cart-outline" size={22} color={C.white} />
+          {totalQty > 0 && (
+            <View style={s.cartBadge}><Text style={s.cartBadgeTxt}>{totalQty}</Text></View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" stickyHeaderIndices={[1]}>
 
           {/* ── Order Panel ── */}
-          <View style={styles.orderPanel}>
-            {/* Panel top: customer input + table number */}
-            <View style={styles.panelTopRow}>
-              <Text style={styles.panelTitle}>Ordered items</Text>
-              <TextInput
-                style={styles.customerInput}
-                placeholder="Customer Detail"
-                placeholderTextColor={MUTED}
-                value={customerName}
-                onChangeText={setCustomerName}
-              />
-              <TouchableOpacity style={styles.addCustomerBtn}>
-                <Ionicons name="add" size={16} color={NAVY} />
-              </TouchableOpacity>
-              <Text style={styles.tableNumber}>Table Number: {tableName}</Text>
-            </View>
-
-            {/* Items table header */}
-            <View style={styles.tableHeader}>
-              <Text style={[styles.th, { flex: 3 }]}>Item</Text>
-              <Text style={[styles.th, { flex: 2 }]}>Variation</Text>
-              <Text style={[styles.th, { flex: 1, textAlign: "center" }]}>Qty</Text>
-              <Text style={[styles.th, { flex: 2, textAlign: "right" }]}>Remark</Text>
-            </View>
-
-            {/* Cart items */}
-            <View style={styles.cartItemsBox}>
-              {cartList.length === 0 ? (
-                <Text style={styles.emptyCart}>No items added yet</Text>
-              ) : (
-                cartList.map((item) => (
-                  <View key={cartKey(item.menuItemId, item.variationId)} style={styles.cartItemRow}>
-                    <Text style={[styles.td, { flex: 3 }]} numberOfLines={1}>{item.name}</Text>
-                    <Text style={[styles.td, { flex: 2 }]}>{item.variationName ?? ""}</Text>
-                    <Text style={[styles.td, { flex: 1, textAlign: "center", fontWeight: "700" }]}>{item.qty}</Text>
-                    <Text style={[styles.td, { flex: 2, textAlign: "right", color: MUTED }]}>{item.notes || ""}</Text>
+          {showCart && (
+            <View style={s.orderPanel}>
+              {/* Customer + table row */}
+              <View style={s.panelHeader}>
+                <View style={s.panelTitleRow}>
+                  <Ionicons name="receipt-outline" size={16} color={C.accent} />
+                  <Text style={s.panelTitle}>Order Summary</Text>
+                  <View style={s.tablePill}>
+                    <Ionicons name="grid-outline" size={12} color={C.accent} />
+                    <Text style={s.tablePillTxt}>Table {tableName}</Text>
                   </View>
-                ))
-              )}
-            </View>
+                </View>
+                <TextInput
+                  style={s.customerInput}
+                  placeholder="Customer name (optional)"
+                  placeholderTextColor={C.muted}
+                  value={customerName}
+                  onChangeText={setCustomerName}
+                />
+              </View>
 
-            {/* Action buttons */}
-            <View style={styles.actionBar}>
-              <View style={styles.actionLeft}>
+              {/* Cart items */}
+              {cartList.length === 0 ? (
+                <View style={s.emptyCart}>
+                  <Ionicons name="fast-food-outline" size={28} color={C.muted} />
+                  <Text style={s.emptyCartTxt}>No items added yet</Text>
+                </View>
+              ) : (
+                <View style={s.cartList}>
+                  {/* Header row */}
+                  <View style={s.cartHeader}>
+                    <Text style={[s.cartHd, { flex: 4 }]}>Item</Text>
+                    <Text style={[s.cartHd, { flex: 2, textAlign: "center" }]}>Qty</Text>
+                    <Text style={[s.cartHd, { flex: 2, textAlign: "right" }]}>Price</Text>
+                  </View>
+                  {cartList.map(item => (
+                    <View key={cartKey(item.menuItemId, item.variationId)} style={s.cartRow}>
+                      <View style={{ flex: 4 }}>
+                        <Text style={s.cartItemName} numberOfLines={1}>{item.name}</Text>
+                        {item.variationName && <Text style={s.cartItemVar}>{item.variationName}</Text>}
+                      </View>
+                      <View style={[s.cartQtyRow, { flex: 2 }]}>
+                        <TouchableOpacity style={s.cartQtyBtn} onPress={() => removeItem(cartKey(item.menuItemId, item.variationId))}>
+                          <Text style={s.cartQtyBtnTxt}>−</Text>
+                        </TouchableOpacity>
+                        <Text style={s.cartQtyNum}>{item.qty}</Text>
+                        <TouchableOpacity style={s.cartQtyBtn} onPress={() => addItem({ id: item.menuItemId, name: item.name, priceDineIn: item.price }, item.variationId, item.variationName, item.price)}>
+                          <Text style={s.cartQtyBtnTxt}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={[s.cartItemPrice, { flex: 2 }]}>
+                        Rs. {(item.price * item.qty).toFixed(0)}
+                      </Text>
+                    </View>
+                  ))}
+                  {/* Total */}
+                  <View style={s.totalRow}>
+                    <Text style={s.totalLabel}>Total</Text>
+                    <Text style={s.totalAmt}>Rs. {totalAmt.toFixed(2)}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Action buttons */}
+              <View style={s.actionBar}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.placeBtn, (isLoading || cartList.length === 0) && { opacity: 0.5 }]}
+                  style={[s.actionBtn, s.placeBtn, (busy || cartList.length === 0) && { opacity: 0.5 }]}
                   onPress={() => placeOrder.mutate()}
-                  disabled={isLoading || cartList.length === 0}
+                  disabled={busy || cartList.length === 0}
                 >
                   {placeOrder.isPending
-                    ? <ActivityIndicator size="small" color={WHITE} />
-                    : <Text style={styles.placeBtnText}>Place Order</Text>
+                    ? <ActivityIndicator size="small" color={C.white} />
+                    : <><Ionicons name="send" size={15} color={C.white} /><Text style={s.placeBtnTxt}>Send KOT</Text></>
                   }
                 </TouchableOpacity>
-                <View style={styles.actionDivider} />
                 <TouchableOpacity
-                  style={[styles.actionBtn, (isLoading || cartList.length === 0) && { opacity: 0.5 }]}
+                  style={[s.actionBtn, s.holdBtn, (busy || cartList.length === 0) && { opacity: 0.5 }]}
                   onPress={() => holdOrder.mutate()}
-                  disabled={isLoading || cartList.length === 0}
+                  disabled={busy || cartList.length === 0}
                 >
                   {holdOrder.isPending
-                    ? <ActivityIndicator size="small" color={WHITE} />
-                    : <Text style={styles.actionBtnText}>Hold</Text>
+                    ? <ActivityIndicator size="small" color={C.amber} />
+                    : <><Ionicons name="pause-circle-outline" size={15} color={C.amber} /><Text style={s.holdBtnTxt}>Hold</Text></>
                   }
                 </TouchableOpacity>
-              </View>
-              <View style={styles.actionRight}>
                 <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => router.back()}
-                >
-                  <Text style={styles.actionBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <View style={styles.actionDivider} />
-                <TouchableOpacity
-                  style={[styles.actionBtn, cartList.length === 0 && { opacity: 0.5 }]}
-                  onPress={resetCart}
+                  style={[s.actionBtn, s.resetBtn, cartList.length === 0 && { opacity: 0.4 }]}
+                  onPress={() => Alert.alert("Reset", "Clear all items?", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Reset", style: "destructive", onPress: () => setCart({}) },
+                  ])}
                   disabled={cartList.length === 0}
                 >
-                  <Text style={styles.actionBtnText}>Reset</Text>
+                  <Ionicons name="trash-outline" size={15} color={C.red} />
+                  <Text style={s.resetBtnTxt}>Clear</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          )}
 
           {/* ── Search ── */}
-          <View style={styles.searchBox}>
-            <View style={styles.searchRow}>
-              <Ionicons name="search-outline" size={16} color={MUTED} style={{ marginLeft: 12 }} />
+          <View style={s.searchWrap}>
+            <View style={s.searchBar}>
+              <Ionicons name="search-outline" size={16} color={C.muted} />
               <TextInput
-                style={styles.searchInput}
-                placeholder="Search item"
-                placeholderTextColor={MUTED}
-                value={searchText}
-                onChangeText={setSearchText}
+                style={s.searchInput}
+                placeholder="Search menu…"
+                placeholderTextColor={C.muted}
+                value={search}
+                onChangeText={setSearch}
               />
-              {searchText !== "" && (
-                <TouchableOpacity onPress={() => setSearchText("")} style={{ marginRight: 12 }}>
-                  <Ionicons name="close-circle" size={16} color={MUTED} />
+              {search !== "" && (
+                <TouchableOpacity onPress={() => setSearch("")}>
+                  <Ionicons name="close-circle" size={16} color={C.muted} />
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
-          {/* ── Category Filter ── */}
-          <View style={styles.catSection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+          {/* ── Category tabs ── */}
+          <View style={s.catWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 14, paddingVertical: 10 }}>
               <TouchableOpacity
-                style={[styles.catChip, selectedCategory === null && styles.catChipActive]}
-                onPress={() => setSelectedCategory(null)}
+                style={[s.catChip, selectedCat === null && s.catChipActive]}
+                onPress={() => setSelectedCat(null)}
               >
-                <Text style={[styles.catChipText, selectedCategory === null && styles.catChipTextActive]}>All item</Text>
+                <Text style={[s.catChipTxt, selectedCat === null && s.catChipTxtActive]}>All</Text>
               </TouchableOpacity>
               {categories.filter(c => c.isActive !== false).map((cat: any) => (
                 <TouchableOpacity
                   key={cat.id}
-                  style={[styles.catChip, selectedCategory === cat.id && styles.catChipActive]}
-                  onPress={() => setSelectedCategory(cat.id)}
+                  style={[s.catChip, selectedCat === cat.id && s.catChipActive]}
+                  onPress={() => setSelectedCat(cat.id)}
                 >
-                  <Text style={[styles.catChipText, selectedCategory === cat.id && styles.catChipTextActive]}>{cat.name}</Text>
+                  <Text style={[s.catChipTxt, selectedCat === cat.id && s.catChipTxtActive]}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
 
-          {/* ── Menu Items ── */}
+          {/* ── Menu grid ── */}
           {menuLoading ? (
-            <View style={{ padding: 32, alignItems: "center" }}>
-              <ActivityIndicator size="large" color={NAVY} />
+            <View style={{ padding: 40, alignItems: "center" }}>
+              <ActivityIndicator size="large" color={C.accent} />
+            </View>
+          ) : filteredItems.length === 0 ? (
+            <View style={{ padding: 40, alignItems: "center", gap: 8 }}>
+              <Ionicons name="search-outline" size={36} color={C.muted} />
+              <Text style={{ color: C.muted }}>No items found</Text>
             </View>
           ) : (
-            <View style={styles.menuList}>
+            <View style={s.menuGrid}>
               {filteredItems.map((item: any) => {
                 const variations: Variation[] = item.variations ?? [];
-                const hasVariations = variations.length > 0;
-
-                // Show up to 2 variation shortcuts (F / N from design)
-                const v1 = variations[0];
-                const v2 = variations[1];
+                const hasVar = variations.length > 0;
+                const baseQty = getQty(item.id);
 
                 return (
-                  <View key={item.id} style={styles.menuCard}>
-                    {/* Item image */}
+                  <View key={item.id} style={s.menuCard}>
+                    {/* Image */}
                     {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                      <Image source={{ uri: item.imageUrl }} style={s.menuImg} />
                     ) : (
-                      <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
-                        <Ionicons name="fast-food-outline" size={22} color={MUTED} />
+                      <View style={[s.menuImg, s.menuImgPlaceholder]}>
+                        <Ionicons name="fast-food-outline" size={24} color={C.muted} />
                       </View>
                     )}
 
-                    {/* Item name */}
-                    <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+                    {/* Name */}
+                    <Text style={s.menuName} numberOfLines={2}>{item.name}</Text>
 
-                    {/* Variation buttons (F / N) */}
-                    <View style={styles.varBtns}>
-                      {hasVariations ? (
-                        <>
-                          {v1 && (
-                            <TouchableOpacity
-                              style={styles.varBtn}
-                              onPress={() => addItem(item, v1.id, v1.name, v1.priceDineIn)}
-                            >
-                              <Text style={styles.varBtnText}>{v1.code ?? v1.name.charAt(0).toUpperCase()}</Text>
-                            </TouchableOpacity>
-                          )}
-                          {v2 && (
-                            <TouchableOpacity
-                              style={styles.varBtn}
-                              onPress={() => addItem(item, v2.id, v2.name, v2.priceDineIn)}
-                            >
-                              <Text style={styles.varBtnText}>{v2.code ?? v2.name.charAt(0).toUpperCase()}</Text>
-                            </TouchableOpacity>
-                          )}
-                          {!v2 && <View style={styles.varBtnGhost} />}
-                        </>
-                      ) : (
-                        <>
-                          <View style={styles.varBtnGhost} />
-                          <View style={styles.varBtnGhost} />
-                        </>
-                      )}
-                    </View>
+                    {/* Price */}
+                    <Text style={s.menuPrice}>
+                      Rs. {Number(item.priceDineIn ?? item.price ?? 0).toFixed(0)}
+                    </Text>
 
-                    {/* Qty controls (base / no variation) */}
-                    <View style={styles.qtyRow}>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => removeItem(cartKey(item.id))}
-                        disabled={getQty(item.id) === 0}
-                      >
-                        <Text style={styles.qtyBtnText}>−</Text>
-                      </TouchableOpacity>
-                      <Text style={[
-                        styles.qtyNum,
-                        getQty(item.id) > 0 && { color: RED, fontWeight: "800" }
-                      ]}>
-                        {getQty(item.id)}
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => addItem(item)}
-                      >
-                        <Text style={styles.qtyBtnText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {/* Variation buttons */}
+                    {hasVar ? (
+                      <View style={s.varRow}>
+                        {variations.slice(0, 3).map((v: Variation) => {
+                          const qty = getQty(item.id, v.id);
+                          return (
+                            <TouchableOpacity
+                              key={v.id}
+                              style={[s.varBtn, qty > 0 && s.varBtnActive]}
+                              onPress={() => addItem(item, v.id, v.name, v.priceDineIn)}
+                            >
+                              <Text style={[s.varBtnTxt, qty > 0 && s.varBtnTxtActive]}>
+                                {v.code ?? v.name.charAt(0).toUpperCase()}
+                              </Text>
+                              {qty > 0 && <Text style={s.varBtnQty}>{qty}</Text>}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      /* Base qty controls */
+                      <View style={s.qtyRow}>
+                        <TouchableOpacity
+                          style={[s.qtyBtn, baseQty === 0 && { opacity: 0.3 }]}
+                          onPress={() => removeItem(cartKey(item.id))}
+                          disabled={baseQty === 0}
+                        >
+                          <Ionicons name="remove" size={16} color={C.white} />
+                        </TouchableOpacity>
+                        <Text style={[s.qtyNum, baseQty > 0 && { color: C.accent }]}>
+                          {baseQty}
+                        </Text>
+                        <TouchableOpacity style={s.qtyBtn} onPress={() => addItem(item)}>
+                          <Ionicons name="add" size={16} color={C.white} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Active indicator dot */}
+                    {(baseQty > 0 || variations.some(v => getQty(item.id, v.id) > 0)) && (
+                      <View style={s.activeDot} />
+                    )}
                   </View>
                 );
               })}
-
-              {filteredItems.length === 0 && (
-                <View style={{ padding: 32, alignItems: "center" }}>
-                  <Ionicons name="search-outline" size={36} color={MUTED} />
-                  <Text style={{ color: MUTED, marginTop: 10 }}>No items found</Text>
-                </View>
-              )}
             </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
 
       {/* ── Bottom Nav ── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/history" as any)}>
-          <Text style={styles.navLabel}>History</Text>
+      <View style={s.bottomNav}>
+        <TouchableOpacity style={s.navItem} onPress={() => router.push("/history" as any)}>
+          <Ionicons name="time-outline" size={21} color={C.muted} />
+          <Text style={s.navLabel}>History</Text>
         </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={[styles.navItem, { position: "relative" }]} onPress={() => router.push("/notifications" as any)}>
-          <View style={{ position: "relative", alignSelf: "center" }}>
-            <Text style={styles.navLabel}>Notification</Text>
-            <View style={styles.notifDot} />
-          </View>
+        <TouchableOpacity style={s.navItem} onPress={() => router.push("/notifications" as any)}>
+          <Ionicons name="notifications-outline" size={21} color={C.muted} />
+          <Text style={s.navLabel}>Alerts</Text>
         </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/ready-items" as any)}>
-          <Text style={styles.navLabel}>Ready item</Text>
+        <TouchableOpacity style={s.navItem} onPress={() => router.push("/ready-items" as any)}>
+          <Ionicons name="checkmark-circle-outline" size={21} color={C.muted} />
+          <Text style={s.navLabel}>Ready</Text>
         </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity style={styles.navItem} onPress={() => router.back()}>
-          <Text style={styles.navLabel}>Logout</Text>
+        <TouchableOpacity style={s.navItem} onPress={() => router.back()}>
+          <Ionicons name="arrow-back-circle-outline" size={21} color={C.muted} />
+          <Text style={s.navLabel}>Tables</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: WHITE },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.card },
 
   // Header
   header: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: NAVY, paddingHorizontal: 12, paddingVertical: 10,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: C.navy, paddingHorizontal: 16, paddingVertical: 12, gap: 10,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
-  logoBox: { width: 28, height: 28, borderRadius: 6, backgroundColor: WHITE + "22", alignItems: "center", justifyContent: "center" },
-  brandName: { color: WHITE, fontSize: 14, fontWeight: "800", letterSpacing: 0.5 },
-  headerRight: { alignItems: "flex-end" },
-  waiterName: { color: WHITE, fontSize: 12, fontWeight: "700" },
-  waiterRole: { color: MUTED, fontSize: 10 },
-  dateTime: { color: MUTED, fontSize: 10 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.white + "18", alignItems: "center", justifyContent: "center" },
+  headerTitle: { color: C.white, fontSize: 17, fontWeight: "800" },
+  headerSub: { color: C.muted, fontSize: 12, marginTop: 1 },
+  cartBadgeBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  cartBadge: {
+    position: "absolute", top: 2, right: 2,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: C.red, alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+  },
+  cartBadgeTxt: { color: C.white, fontSize: 10, fontWeight: "800" },
 
   // Order panel
   orderPanel: {
-    backgroundColor: WHITE, margin: 10, borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER, overflow: "hidden",
+    backgroundColor: C.white, margin: 12, borderRadius: 16,
+    shadowColor: C.navy, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 3, overflow: "hidden",
   },
-  panelTopRow: {
-    flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 10, paddingVertical: 8,
-    borderBottomWidth: 1, borderBottomColor: BORDER,
-    gap: 6, flexWrap: "wrap",
+  panelHeader: { padding: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: C.border },
+  panelTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  panelTitle: { flex: 1, color: C.navy, fontSize: 15, fontWeight: "700" },
+  tablePill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: C.light, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
   },
-  panelTitle: { color: NAVY, fontSize: 12, fontWeight: "700" },
+  tablePillTxt: { color: C.accent, fontSize: 11, fontWeight: "700" },
   customerInput: {
-    flex: 1, minWidth: 100,
-    borderWidth: 1, borderColor: BORDER,
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
-    fontSize: 12, color: NAVY,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+    fontSize: 13, color: C.navy, backgroundColor: C.card,
   },
-  addCustomerBtn: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: LIGHT, alignItems: "center", justifyContent: "center",
-  },
-  tableNumber: { color: NAVY, fontSize: 12, fontWeight: "600" },
 
-  // Table header
-  tableHeader: {
-    flexDirection: "row", backgroundColor: "#F0F2FA",
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderBottomWidth: 1, borderBottomColor: BORDER,
-  },
-  th: { fontSize: 11, fontWeight: "700", color: NAVY },
+  emptyCart: { alignItems: "center", paddingVertical: 20, gap: 6 },
+  emptyCartTxt: { color: C.muted, fontSize: 13 },
 
-  // Cart items
-  cartItemsBox: { minHeight: 60, maxHeight: 140 },
-  emptyCart: { color: MUTED, fontSize: 12, textAlign: "center", paddingVertical: 16 },
-  cartItemRow: {
-    flexDirection: "row", paddingHorizontal: 10, paddingVertical: 5,
-    borderBottomWidth: 1, borderBottomColor: "#F0F2FA",
+  cartList: { paddingHorizontal: 14, paddingBottom: 4 },
+  cartHeader: { flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
+  cartHd: { color: C.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  cartRow: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border + "88",
   },
-  td: { fontSize: 11, color: NAVY },
+  cartItemName: { color: C.navy, fontSize: 13, fontWeight: "600" },
+  cartItemVar: { color: C.muted, fontSize: 11, marginTop: 1 },
+  cartQtyRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  cartQtyBtn: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.light, alignItems: "center", justifyContent: "center" },
+  cartQtyBtnTxt: { color: C.navy, fontSize: 16, fontWeight: "700", lineHeight: 20 },
+  cartQtyNum: { color: C.accent, fontSize: 14, fontWeight: "800", minWidth: 18, textAlign: "center" },
+  cartItemPrice: { color: C.navy, fontSize: 13, fontWeight: "700", textAlign: "right" },
+  totalRow: {
+    flexDirection: "row", justifyContent: "space-between",
+    paddingVertical: 10, paddingTop: 12,
+  },
+  totalLabel: { color: C.muted, fontSize: 13, fontWeight: "700" },
+  totalAmt: { color: C.navy, fontSize: 16, fontWeight: "800" },
 
   // Action bar
   actionBar: {
-    flexDirection: "row",
-    backgroundColor: NAVY, paddingVertical: 0,
+    flexDirection: "row", gap: 8,
+    padding: 12, backgroundColor: C.card,
+    borderTopWidth: 1, borderTopColor: C.border,
   },
-  actionLeft: { flex: 1, flexDirection: "row", alignItems: "center" },
-  actionRight: { flexDirection: "row", alignItems: "center" },
-  actionBtn: { paddingHorizontal: 14, paddingVertical: 12 },
-  placeBtn: {},
-  placeBtnText: { color: WHITE, fontSize: 13, fontWeight: "700" },
-  actionBtnText: { color: WHITE, fontSize: 13, fontWeight: "600" },
-  actionDivider: { width: 1, height: 28, backgroundColor: WHITE + "33" },
+  actionBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 },
+  placeBtn: { flex: 1, backgroundColor: C.navy, justifyContent: "center" },
+  placeBtnTxt: { color: C.white, fontSize: 14, fontWeight: "700" },
+  holdBtn: { borderWidth: 1.5, borderColor: C.amber },
+  holdBtnTxt: { color: C.amber, fontSize: 13, fontWeight: "700" },
+  resetBtn: { borderWidth: 1.5, borderColor: C.red + "55" },
+  resetBtnTxt: { color: C.red, fontSize: 13, fontWeight: "600" },
 
   // Search
-  searchBox: { marginHorizontal: 10, marginTop: 8 },
-  searchRow: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: WHITE, borderRadius: 25,
-    borderWidth: 1, borderColor: BORDER,
-    height: 38,
+  searchWrap: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, backgroundColor: C.white },
+  searchBar: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 12, height: 40,
   },
-  searchInput: { flex: 1, paddingHorizontal: 8, fontSize: 13, color: NAVY },
+  searchInput: { flex: 1, fontSize: 13, color: C.navy },
 
   // Categories
-  catSection: { backgroundColor: WHITE, marginTop: 6 },
-  catChip: {
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, borderColor: NAVY,
-    backgroundColor: WHITE,
-  },
-  catChipActive: { backgroundColor: NAVY },
-  catChipText: { color: NAVY, fontSize: 12, fontWeight: "600" },
-  catChipTextActive: { color: WHITE },
+  catWrap: { backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
+  catChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.card },
+  catChipActive: { backgroundColor: C.navy, borderColor: C.navy },
+  catChipTxt: { color: C.muted, fontSize: 12, fontWeight: "600" },
+  catChipTxtActive: { color: C.white },
 
-  // Menu items
-  menuList: { paddingHorizontal: 8, paddingBottom: 80 },
+  // Menu
+  menuGrid: { flexDirection: "row", flexWrap: "wrap", padding: 8, paddingBottom: 90, gap: 8 },
   menuCard: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: WHITE, borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER,
-    marginVertical: 4, paddingHorizontal: 10, paddingVertical: 8,
-    gap: 8,
+    width: "47%", backgroundColor: C.white, borderRadius: 14,
+    padding: 12, alignItems: "center", gap: 6,
+    shadowColor: C.navy, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    position: "relative",
   },
-  itemImage: { width: 46, height: 46, borderRadius: 23 },
-  itemImagePlaceholder: {
-    backgroundColor: LIGHT, alignItems: "center", justifyContent: "center",
-  },
-  itemName: { flex: 1, fontSize: 13, fontWeight: "600", color: NAVY },
-  varBtns: { flexDirection: "row", gap: 6 },
-  varBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: NAVY3, alignItems: "center", justifyContent: "center",
-  },
-  varBtnText: { color: WHITE, fontSize: 12, fontWeight: "700" },
-  varBtnGhost: { width: 30, height: 30 },
+  menuImg: { width: 60, height: 60, borderRadius: 30 },
+  menuImgPlaceholder: { backgroundColor: C.light, alignItems: "center", justifyContent: "center" },
+  menuName: { color: C.navy, fontSize: 13, fontWeight: "700", textAlign: "center" },
+  menuPrice: { color: C.muted, fontSize: 12, fontWeight: "600" },
 
-  // Qty row
-  qtyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  qtyBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: NAVY3, alignItems: "center", justifyContent: "center",
+  varRow: { flexDirection: "row", gap: 6 },
+  varBtn: {
+    minWidth: 34, height: 34, borderRadius: 17,
+    backgroundColor: C.light, alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 8, flexDirection: "row", gap: 2,
   },
-  qtyBtnText: { color: WHITE, fontSize: 16, fontWeight: "700", lineHeight: 20 },
-  qtyNum: { width: 22, textAlign: "center", fontSize: 15, color: NAVY, fontWeight: "700" },
+  varBtnActive: { backgroundColor: C.accent },
+  varBtnTxt: { color: C.navy, fontSize: 13, fontWeight: "700" },
+  varBtnTxtActive: { color: C.white },
+  varBtnQty: { color: C.white, fontSize: 11, fontWeight: "800" },
+
+  qtyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  qtyBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+  qtyNum: { width: 22, textAlign: "center", fontSize: 15, fontWeight: "800", color: C.muted },
+
+  activeDot: {
+    position: "absolute", top: 8, right: 8,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: C.green,
+  },
 
   // Bottom nav
   bottomNav: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: NAVY2, paddingVertical: 12, paddingBottom: 18,
-    borderTopWidth: 1, borderTopColor: DARK_BORDER,
+    flexDirection: "row",
+    backgroundColor: C.navBg,
+    paddingTop: 10, paddingBottom: 22,
+    borderTopWidth: 1, borderTopColor: "#1E2D8A",
   },
-  navItem: { flex: 1, alignItems: "center" },
-  navLabel: { color: WHITE, fontSize: 12, fontWeight: "600" },
-  navDivider: { width: 1, height: 18, backgroundColor: WHITE + "33" },
-  notifDot: {
-    position: "absolute", top: -2, right: -8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: SUCCESS,
-  },
+  navItem: { flex: 1, alignItems: "center", gap: 3 },
+  navLabel: { color: C.muted, fontSize: 10, fontWeight: "600" },
 });
