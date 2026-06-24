@@ -96,10 +96,12 @@ export default function WaiterOrderScreen() {
     },
   });
   const allItems: any[] = menuData ?? [];
-  const filteredItems = allItems.filter(i =>
-    i.isActive !== false &&
-    (search === "" || i.name.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredItems = allItems
+    .filter(i =>
+      i.isActive !== false &&
+      (search === "" || i.name.toLowerCase().includes(search.toLowerCase()))
+    )
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base", numeric: true }));
 
   // Held orders for this table
   const { data: holdData, refetch: refetchHold } = useQuery({
