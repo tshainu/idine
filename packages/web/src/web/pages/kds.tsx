@@ -40,9 +40,9 @@ export default function KDSPage() {
   });
 
   const { data: ordersData, isLoading } = useQuery({
-    queryKey: ["kds-orders", branchId, "pending"],
+    queryKey: ["kds-orders", branchId, "confirmed"],
     queryFn: async () => {
-      const res = await api.orders.$get({ query: { branchId: String(branchId), status: "pending" } });
+      const res = await api.orders.$get({ query: { branchId: String(branchId), status: "confirmed" } });
       return res.json();
     },
     refetchInterval: 8000,

@@ -31,7 +31,7 @@ const C = {
 
 const STATUS_COLORS: Record<string, string> = {
   available: C.green,
-  occupied:  C.amber,
+  occupied:  C.green,
   reserved:  C.purple,
   cleaning:  C.red,
 };
@@ -43,7 +43,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const STATUS_BG: Record<string, string> = {
   available: "#DCFCE7",
-  occupied:  "#FEF3C7",
+  occupied:  "#DCFCE7",
   reserved:  "#F3E8FF",
   cleaning:  "#FEE2E2",
 };
@@ -196,7 +196,11 @@ export default function TablesScreen() {
                   return (
                     <TouchableOpacity
                       key={t.id}
-                      style={[s.tableCard, locked && s.tableCardDisabled]}
+                      style={[
+                        s.tableCard,
+                        locked && s.tableCardDisabled,
+                        { borderWidth: 2, borderColor: color },
+                      ]}
                       onPress={() => {
                         if (!locked)
                           router.push(`/waiter-order?tableId=${t.id}&name=${encodeURIComponent(t.name)}&status=${t.status}` as any);
@@ -204,8 +208,6 @@ export default function TablesScreen() {
                       activeOpacity={0.75}
                       disabled={locked}
                     >
-                      {/* Color bar */}
-                      <View style={[s.tableColorBar, { backgroundColor: color }]} />
                       <View style={s.tableBody}>
                         <Text style={s.tableName}>{t.name}</Text>
                         <View style={[s.tableStatusBadge, { backgroundColor: bg }]}>

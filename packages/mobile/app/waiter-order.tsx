@@ -284,16 +284,16 @@ export default function WaiterOrderScreen() {
   const busy = placeOrder.isPending || holdOrder.isPending;
 
   return (
-    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={s.safe} edges={["top", "left", "right", "bottom"]}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={s.headerIconBtn}>
-          <Ionicons name="home-outline" size={19} color={C.white} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.back()} style={[s.headerIconBtn, { marginRight: 4 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerIconBtn}>
           <Ionicons name="arrow-back" size={19} color={C.white} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={[s.headerIconBtn, { marginRight: 4 }]}>
+          <Ionicons name="home-outline" size={19} color={C.white} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Table {tableName}</Text>
@@ -308,13 +308,31 @@ export default function WaiterOrderScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── Customer name — always visible ── */}
+      <View style={s.customerBar}>
+        <Ionicons name="person-outline" size={16} color={C.accent} />
+        <TextInput
+          style={s.customerBarInput}
+          placeholder="Customer name (optional)"
+          placeholderTextColor={C.muted}
+          value={customerName}
+          onChangeText={setCustomerName}
+          returnKeyType="done"
+        />
+        {customerName !== "" && (
+          <TouchableOpacity onPress={() => setCustomerName("")}>
+            <Ionicons name="close-circle" size={16} color={C.muted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" stickyHeaderIndices={[1]}>
 
           {/* ── Order Panel ── */}
           {showCart && (
             <View style={s.orderPanel}>
-              {/* Customer + table row */}
+              {/* Table row */}
               <View style={s.panelHeader}>
                 <View style={s.panelTitleRow}>
                   <Ionicons name="receipt-outline" size={16} color={C.accent} />
@@ -323,17 +341,6 @@ export default function WaiterOrderScreen() {
                     <Ionicons name="grid-outline" size={12} color={C.accent} />
                     <Text style={s.tablePillTxt}>Table {tableName}</Text>
                   </View>
-                </View>
-                {/* Customer name input */}
-                <View style={s.customerRow}>
-                  <Ionicons name="person-outline" size={15} color={C.muted} />
-                  <TextInput
-                    style={s.customerInput}
-                    placeholder="Customer name (optional)"
-                    placeholderTextColor={C.muted}
-                    value={customerName}
-                    onChangeText={setCustomerName}
-                  />
                 </View>
               </View>
 
@@ -390,10 +397,10 @@ export default function WaiterOrderScreen() {
                   }
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[s.actionBtn, s.holdBtn, (busy || cartList.length === 0) && { opacity: 0.5 }]}
+                  style={[s.actionBtn, s.holdBtn, busy && { opacity: 0.5 }]}
                   onPress={() => holdOrder.mutate()}
                   onLongPress={() => { refetchHold(); setShowHoldList(true); }}
-                  disabled={busy || cartList.length === 0}
+                  disabled={busy}
                   delayLongPress={600}
                 >
                   {holdOrder.isPending
@@ -654,11 +661,23 @@ const s = StyleSheet.create({
   },
   cartBadgeTxt: { color: C.white, fontSize: 10, fontWeight: "800" },
 
+  // Customer bar (always visible)
+  customerBar: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: C.white, marginHorizontal: 12, marginTop: 10, marginBottom: 2,
+    borderRadius: 12, borderWidth: 1.5, borderColor: C.accent + "88",
+    paddingHorizontal: 12, paddingVertical: 8,
+    shadowColor: C.navy, shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  customerBarInput: { flex: 1, fontSize: 14, color: C.navy, fontWeight: "600" },
+
   // Order panel
   orderPanel: {
     backgroundColor: C.white, margin: 12, borderRadius: 16,
     shadowColor: C.navy, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
     elevation: 3, overflow: "hidden",
+    borderWidth: 2, borderColor: C.accent,
   },
   panelHeader: { padding: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: C.border },
   panelTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -728,7 +747,7 @@ const s = StyleSheet.create({
   catChipTxtActive: { color: C.white },
 
   // Menu list
-  menuList: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 100, gap: 8 },
+  menuList: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 120, gap: 8 },
   menuListItem: {
     flexDirection: "row", alignItems: "flex-start",
     backgroundColor: C.white, borderRadius: 14, padding: 12, gap: 12,
