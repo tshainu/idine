@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, StatusBar, ScrollView, TextInput,
-  Alert, Image, KeyboardAvoidingView, Platform,
+  Alert, Image, KeyboardAvoidingView, Platform, Modal, FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -62,6 +62,7 @@ export default function WaiterOrderScreen() {
   const [search, setSearch] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [showCart, setShowCart] = useState(true);
+  const [showHoldList, setShowHoldList] = useState(false);
 
   useEffect(() => {
     loadUser().then(setUser);
@@ -80,7 +81,7 @@ export default function WaiterOrderScreen() {
   });
   const categories: any[] = catData ?? [];
 
-  // Menu items
+  // Menu items with variations
   const { data: menuData, isLoading: menuLoading } = useQuery({
     queryKey: ["menu-items", selectedCat],
     queryFn: async () => {
@@ -96,6 +97,19 @@ export default function WaiterOrderScreen() {
     i.isActive !== false &&
     (search === "" || i.name.toLowerCase().includes(search.toLowerCase()))
   );
+
+  // Held orders for this table
+  const { data: holdData, refetch: refetchHold } = useQuery({
+    queryKey: ["hold-orders", tableId],
+    queryFn: async () => {
+      const res = await api.orders.$get({ query: { branchId: String(user?.branchId ?? 1), status: "hold" } });
+      const json = await res.json() as any;
+      const all: any[] = json.orders ?? [];
+      return all.filter((o: any) => String(o.tableId) === String(tableId));
+    },
+    enabled: !!user,
+  });
+  const holdOrders: any[] = holdData ?? [];
 
   // Cart helpers
   const cartList = Object.values(cart);
@@ -125,15 +139,101 @@ export default function WaiterOrderScreen() {
     return cart[cartKey(menuItemId, variationId)]?.qty ?? 0;
   }
 
-  // Place order
+  // ── Place order (sends to kitchen + prints KOT) ──────────────────
   const placeOrder = useMutation({
+    mutationFn: async () => {
+      if (cartList.length === 0) throw new Error("Cart is empty");
+
+      // 1. Create order with confirmed status so it appears in KDS
+      const orderRes = await api.orders.$post({
+        json: {
+          tableId: Number(tableId),
+          branchId: user?.branchId ?? 1,
+          customerName: customerName || `Table ${tableName}`,
+          coverCount: 1,
+          status: "confirmed",   // ← confirmed so KDS picks it up immediately
+          source: "waiter",
+          waiterId: user?.id,
+          type: "dine-in",
+        },
+      });
+      const oj = await orderRes.json() as any;
+      const order = oj.order ?? oj;
+      const orderId = order.id;
+
+      // 2. Add items
+      await api["order-items"].bulk.$post({
+        json: {
+          items: cartList.map(c => ({
+            orderId,
+            menuItemId: c.menuItemId,
+            name: c.variationName ? `${c.name} (${c.variationName})` : c.name,
+            price: c.price,
+            qty: c.qty,
+          })),
+        },
+      });
+
+      // 3. Update table status to occupied
+      try {
+        await api.tables[":id"].$patch({
+          param: { id: String(tableId) },
+          json: { status: "occupied" },
+        });
+      } catch (_) {}
+
+      // 4. Create KOT print job
+      try {
+        await api["print-jobs"].$post({
+          json: {
+            orderId,
+            branchId: user?.branchId ?? 1,
+            type: "kot",
+            status: "pending",
+            idempotencyKey: `kot-${orderId}`,
+            payload: JSON.stringify({
+              orderNumber: order.orderNumber,
+              type: "dine-in",
+              tableName: tableName,
+              waiterName: user?.name,
+              customerName: customerName || `Table ${tableName}`,
+              items: cartList.map(c => ({
+                name: c.variationName ? `${c.name} (${c.variationName})` : c.name,
+                qty: c.qty,
+                notes: c.notes,
+              })),
+            }),
+          },
+        });
+      } catch (_) {}
+
+      return orderId;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tables"] });
+      qc.invalidateQueries({ queryKey: ["kds-orders"] });
+      Alert.alert("Order Placed ✅", "KOT sent to kitchen.", [
+        { text: "New Order", onPress: () => { setCart({}); setCustomerName(""); } },
+        { text: "Back to Tables", onPress: () => { setCart({}); router.back(); } },
+      ]);
+    },
+    onError: (e: any) => Alert.alert("Error", e?.message ?? "Failed to place order"),
+  });
+
+  // ── Hold order ───────────────────────────────────────────────────
+  const holdOrder = useMutation({
     mutationFn: async () => {
       if (cartList.length === 0) throw new Error("Cart is empty");
       const orderRes = await api.orders.$post({
         json: {
-          tableId: Number(tableId), branchId: user?.branchId ?? 1,
+          tableId: Number(tableId),
+          branchId: user?.branchId ?? 1,
           customerName: customerName || `Table ${tableName}`,
-          coverCount: 1, status: "pending", source: "waiter", waiterId: user?.id,
+          coverCount: 1,
+          status: "hold",
+          source: "waiter",
+          waiterId: user?.id,
+          type: "dine-in",
         },
       });
       const oj = await orderRes.json() as any;
@@ -141,52 +241,45 @@ export default function WaiterOrderScreen() {
       await api["order-items"].bulk.$post({
         json: {
           items: cartList.map(c => ({
-            orderId, menuItemId: c.menuItemId,
+            orderId,
+            menuItemId: c.menuItemId,
             name: c.variationName ? `${c.name} (${c.variationName})` : c.name,
-            price: c.price, qty: c.qty,
+            price: c.price,
+            qty: c.qty,
           })),
         },
       });
       return orderId;
     },
     onSuccess: () => {
-      Alert.alert("Order Placed ✅", "KOT sent to kitchen.", [
-        { text: "New Order", onPress: () => { setCart({}); setCustomerName(""); qc.invalidateQueries({ queryKey: ["tables"] }); } },
-        { text: "Back", onPress: () => { setCart({}); qc.invalidateQueries({ queryKey: ["tables"] }); router.back(); } },
+      refetchHold();
+      Alert.alert("On Hold", "Order saved.", [
+        { text: "OK", onPress: () => { setCart({}); setCustomerName(""); } },
       ]);
     },
-    onError: (e: any) => Alert.alert("Error", e?.message ?? "Failed to place order"),
-  });
-
-  // Hold order
-  const holdOrder = useMutation({
-    mutationFn: async () => {
-      if (cartList.length === 0) throw new Error("Cart is empty");
-      const orderRes = await api.orders.$post({
-        json: {
-          tableId: Number(tableId), branchId: user?.branchId ?? 1,
-          customerName: customerName || `Table ${tableName}`,
-          coverCount: 1, status: "hold", source: "waiter", waiterId: user?.id,
-        },
-      });
-      const oj = await orderRes.json() as any;
-      const orderId = oj.order?.id ?? oj.id;
-      await api["order-items"].bulk.$post({
-        json: {
-          items: cartList.map(c => ({
-            orderId, menuItemId: c.menuItemId,
-            name: c.variationName ? `${c.name} (${c.variationName})` : c.name,
-            price: c.price, qty: c.qty,
-          })),
-        },
-      });
-      return orderId;
-    },
-    onSuccess: () => Alert.alert("On Hold", "Order saved.", [
-      { text: "OK", onPress: () => { setCart({}); setCustomerName(""); } },
-    ]),
     onError: (e: any) => Alert.alert("Error", e?.message ?? "Failed"),
   });
+
+  // ── Load held order into cart ────────────────────────────────────
+  function loadHeldOrder(order: any) {
+    const items: any[] = order.items ?? [];
+    const newCart: Record<string, CartItem> = {};
+    for (const it of items) {
+      const key = `${it.menuItemId}_base`;
+      newCart[key] = {
+        menuItemId: it.menuItemId,
+        name: it.name,
+        price: Number(it.price),
+        qty: it.qty,
+        notes: it.notes ?? "",
+      };
+    }
+    setCart(newCart);
+    setCustomerName(order.customerName ?? "");
+    setShowHoldList(false);
+    // delete hold order
+    api.orders[":id"].$patch({ param: { id: String(order.id) }, json: { status: "cancelled" } }).catch(() => {});
+  }
 
   const busy = placeOrder.isPending || holdOrder.isPending;
 
@@ -196,8 +289,11 @@ export default function WaiterOrderScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={C.white} />
+        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={s.headerIconBtn}>
+          <Ionicons name="home-outline" size={19} color={C.white} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={[s.headerIconBtn, { marginRight: 4 }]}>
+          <Ionicons name="arrow-back" size={19} color={C.white} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Table {tableName}</Text>
@@ -228,13 +324,17 @@ export default function WaiterOrderScreen() {
                     <Text style={s.tablePillTxt}>Table {tableName}</Text>
                   </View>
                 </View>
-                <TextInput
-                  style={s.customerInput}
-                  placeholder="Customer name (optional)"
-                  placeholderTextColor={C.muted}
-                  value={customerName}
-                  onChangeText={setCustomerName}
-                />
+                {/* Customer name input */}
+                <View style={s.customerRow}>
+                  <Ionicons name="person-outline" size={15} color={C.muted} />
+                  <TextInput
+                    style={s.customerInput}
+                    placeholder="Customer name (optional)"
+                    placeholderTextColor={C.muted}
+                    value={customerName}
+                    onChangeText={setCustomerName}
+                  />
+                </View>
               </View>
 
               {/* Cart items */}
@@ -245,7 +345,6 @@ export default function WaiterOrderScreen() {
                 </View>
               ) : (
                 <View style={s.cartList}>
-                  {/* Header row */}
                   <View style={s.cartHeader}>
                     <Text style={[s.cartHd, { flex: 4 }]}>Item</Text>
                     <Text style={[s.cartHd, { flex: 2, textAlign: "center" }]}>Qty</Text>
@@ -271,7 +370,6 @@ export default function WaiterOrderScreen() {
                       </Text>
                     </View>
                   ))}
-                  {/* Total */}
                   <View style={s.totalRow}>
                     <Text style={s.totalLabel}>Total</Text>
                     <Text style={s.totalAmt}>Rs. {totalAmt.toFixed(2)}</Text>
@@ -294,7 +392,9 @@ export default function WaiterOrderScreen() {
                 <TouchableOpacity
                   style={[s.actionBtn, s.holdBtn, (busy || cartList.length === 0) && { opacity: 0.5 }]}
                   onPress={() => holdOrder.mutate()}
+                  onLongPress={() => { refetchHold(); setShowHoldList(true); }}
                   disabled={busy || cartList.length === 0}
+                  delayLongPress={600}
                 >
                   {holdOrder.isPending
                     ? <ActivityIndicator size="small" color={C.amber} />
@@ -313,6 +413,9 @@ export default function WaiterOrderScreen() {
                   <Text style={s.resetBtnTxt}>Clear</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Hold list hint */}
+              <Text style={s.holdHint}>Long press "Hold" to see held orders</Text>
             </View>
           )}
 
@@ -396,7 +499,7 @@ export default function WaiterOrderScreen() {
                         </Text>
                       )}
 
-                      {/* Variation chips */}
+                      {/* Variation chips — full width, equal size */}
                       {hasVar && (
                         <View style={s.varChipRow}>
                           {variations.map((v: Variation) => {
@@ -407,11 +510,11 @@ export default function WaiterOrderScreen() {
                                   style={[s.varChip, qty > 0 && s.varChipActive]}
                                   onPress={() => addItem(item, v.id, v.name, v.priceDineIn)}
                                 >
-                                  <Text style={[s.varChipLabel, qty > 0 && s.varChipLabelActive]}>
+                                  <Text style={[s.varChipLabel, qty > 0 && s.varChipLabelActive]} numberOfLines={1}>
                                     {v.name}
                                   </Text>
-                                  <Text style={[s.varChipPrice, qty > 0 && s.varChipLabelActive]}>
-                                    {Number(v.priceDineIn).toFixed(0)}
+                                  <Text style={[s.varChipPrice, qty > 0 && { color: C.white + "CC" }]}>
+                                    Rs.{Number(v.priceDineIn).toFixed(0)}
                                   </Text>
                                 </TouchableOpacity>
                                 {qty > 0 && (
@@ -457,7 +560,6 @@ export default function WaiterOrderScreen() {
                       </View>
                     )}
 
-                    {/* In-cart indicator */}
                     {isInCart && <View style={s.activeDot} />}
                   </View>
                 );
@@ -481,11 +583,51 @@ export default function WaiterOrderScreen() {
           <Ionicons name="checkmark-circle-outline" size={21} color={C.muted} />
           <Text style={s.navLabel}>Ready</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.navItem} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-circle-outline" size={21} color={C.muted} />
+        <TouchableOpacity style={s.navItem} onPress={() => router.push("/tables" as any)}>
+          <Ionicons name="grid-outline" size={21} color={C.muted} />
           <Text style={s.navLabel}>Tables</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── Hold List Modal ── */}
+      <Modal visible={showHoldList} transparent animationType="slide" onRequestClose={() => setShowHoldList(false)}>
+        <View style={m.overlay}>
+          <View style={m.sheet}>
+            <View style={m.sheetHeader}>
+              <Text style={m.sheetTitle}>Held Orders — Table {tableName}</Text>
+              <TouchableOpacity onPress={() => setShowHoldList(false)}>
+                <Ionicons name="close" size={22} color={C.muted} />
+              </TouchableOpacity>
+            </View>
+            {holdOrders.length === 0 ? (
+              <View style={{ padding: 30, alignItems: "center", gap: 8 }}>
+                <Ionicons name="pause-circle-outline" size={36} color={C.muted} />
+                <Text style={{ color: C.muted }}>No held orders for this table</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={holdOrders}
+                keyExtractor={o => String(o.id)}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                renderItem={({ item: order }) => (
+                  <TouchableOpacity style={m.holdItem} onPress={() => loadHeldOrder(order)}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={m.holdOrderNum}>{order.orderNumber}</Text>
+                      <Text style={m.holdCustomer}>{order.customerName}</Text>
+                      <Text style={m.holdItems}>
+                        {(order.items ?? []).length} item(s)
+                      </Text>
+                    </View>
+                    <View style={m.loadBtn}>
+                      <Text style={m.loadBtnTxt}>Load</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -496,9 +638,12 @@ const s = StyleSheet.create({
   // Header
   header: {
     flexDirection: "row", alignItems: "center",
-    backgroundColor: C.navy, paddingHorizontal: 16, paddingVertical: 12, gap: 10,
+    backgroundColor: C.navy, paddingHorizontal: 12, paddingVertical: 12, gap: 6,
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.white + "18", alignItems: "center", justifyContent: "center" },
+  headerIconBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.white + "18", alignItems: "center", justifyContent: "center",
+  },
   headerTitle: { color: C.white, fontSize: 17, fontWeight: "800" },
   headerSub: { color: C.muted, fontSize: 12, marginTop: 1 },
   cartBadgeBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
@@ -523,11 +668,12 @@ const s = StyleSheet.create({
     backgroundColor: C.light, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
   },
   tablePillTxt: { color: C.accent, fontSize: 11, fontWeight: "700" },
-  customerInput: {
+  customerRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
     borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8,
-    fontSize: 13, color: C.navy, backgroundColor: C.card,
+    paddingHorizontal: 10, paddingVertical: 4, backgroundColor: C.card,
   },
+  customerInput: { flex: 1, fontSize: 13, color: C.navy, paddingVertical: 6 },
 
   emptyCart: { alignItems: "center", paddingVertical: 20, gap: 6 },
   emptyCartTxt: { color: C.muted, fontSize: 13 },
@@ -546,10 +692,7 @@ const s = StyleSheet.create({
   cartQtyBtnTxt: { color: C.navy, fontSize: 16, fontWeight: "700", lineHeight: 20 },
   cartQtyNum: { color: C.accent, fontSize: 14, fontWeight: "800", minWidth: 18, textAlign: "center" },
   cartItemPrice: { color: C.navy, fontSize: 13, fontWeight: "700", textAlign: "right" },
-  totalRow: {
-    flexDirection: "row", justifyContent: "space-between",
-    paddingVertical: 10, paddingTop: 12,
-  },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, paddingTop: 12 },
   totalLabel: { color: C.muted, fontSize: 13, fontWeight: "700" },
   totalAmt: { color: C.navy, fontSize: 16, fontWeight: "800" },
 
@@ -562,10 +705,11 @@ const s = StyleSheet.create({
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 },
   placeBtn: { flex: 1, backgroundColor: C.navy, justifyContent: "center" },
   placeBtnTxt: { color: C.white, fontSize: 14, fontWeight: "700" },
-  holdBtn: { borderWidth: 1.5, borderColor: C.amber },
+  holdBtn: { borderWidth: 1.5, borderColor: C.amber, paddingHorizontal: 16 },
   holdBtnTxt: { color: C.amber, fontSize: 13, fontWeight: "700" },
   resetBtn: { borderWidth: 1.5, borderColor: C.red + "55" },
   resetBtnTxt: { color: C.red, fontSize: 13, fontWeight: "600" },
+  holdHint: { color: C.muted, fontSize: 10, textAlign: "center", paddingBottom: 8 },
 
   // Search
   searchWrap: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, backgroundColor: C.white },
@@ -602,29 +746,27 @@ const s = StyleSheet.create({
   menuListName: { color: C.navy, fontSize: 14, fontWeight: "700" },
   menuListPrice: { color: C.muted, fontSize: 12, fontWeight: "600" },
 
-  // Variation chips (list view)
+  // Variation chips
   varChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   varChipGroup: { alignItems: "center", gap: 4 },
   varChip: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    minWidth: 72, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10,
     backgroundColor: C.light, borderWidth: 1.5, borderColor: C.border,
     alignItems: "center",
   },
   varChipActive: { backgroundColor: C.accent, borderColor: C.accent },
-  varChipLabel: { color: C.navy, fontSize: 11, fontWeight: "700" },
-  varChipPrice: { color: C.muted, fontSize: 10, fontWeight: "600" },
+  varChipLabel: { color: C.navy, fontSize: 12, fontWeight: "700" },
+  varChipPrice: { color: C.muted, fontSize: 10, fontWeight: "600", marginTop: 1 },
   varChipLabelActive: { color: C.white },
   varQtyRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   varQtyBtn: {
-    width: 22, height: 22, borderRadius: 11,
+    width: 24, height: 24, borderRadius: 12,
     backgroundColor: C.navy, alignItems: "center", justifyContent: "center",
   },
-  varQtyBtnTxt: { color: C.white, fontSize: 14, fontWeight: "800", lineHeight: 18 },
-  varQtyNum: { color: C.accent, fontSize: 13, fontWeight: "800", minWidth: 16, textAlign: "center" },
+  varQtyBtnTxt: { color: C.white, fontSize: 15, fontWeight: "800", lineHeight: 20 },
+  varQtyNum: { color: C.accent, fontSize: 13, fontWeight: "800", minWidth: 18, textAlign: "center" },
 
-  // Right-side qty (no-variation items)
   menuListQty: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 4 },
-
   qtyBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
   qtyNum: { width: 22, textAlign: "center", fontSize: 14, fontWeight: "800", color: C.muted },
 
@@ -642,4 +784,30 @@ const s = StyleSheet.create({
   },
   navItem: { flex: 1, alignItems: "center", gap: 3 },
   navLabel: { color: C.muted, fontSize: 10, fontWeight: "600" },
+});
+
+// ── Hold list modal styles ───────────────────────────────────────
+const m = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "#00000066", justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: C.white, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    maxHeight: "60%", paddingBottom: 30,
+  },
+  sheetHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    padding: 18, borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  sheetTitle: { color: C.navy, fontSize: 16, fontWeight: "800" },
+  holdItem: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 14, paddingHorizontal: 18,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  holdOrderNum: { color: C.navy, fontSize: 14, fontWeight: "800" },
+  holdCustomer: { color: C.muted, fontSize: 12, marginTop: 2 },
+  holdItems: { color: C.accent, fontSize: 11, marginTop: 2 },
+  loadBtn: {
+    backgroundColor: C.navy, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
+  },
+  loadBtnTxt: { color: C.white, fontSize: 13, fontWeight: "700" },
 });

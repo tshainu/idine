@@ -78,7 +78,7 @@ export default function TablesScreen() {
       const json = await res.json() as any;
       return json.tables ?? json;
     },
-    refetchInterval: 20000,
+    refetchInterval: 10000,
     enabled: !!user,
   });
 
@@ -255,7 +255,7 @@ export function BottomNav({ active, router, onLogout }: {
           <TouchableOpacity
             key={item.key}
             style={nav.item}
-            onPress={() => item.key === "tables" && onLogout ? undefined : router.push(item.route as any)}
+            onPress={() => router.push(item.route as any)}
             activeOpacity={0.7}
           >
             <View style={[nav.iconWrap, isActive && nav.iconWrapActive]}>
