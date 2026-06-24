@@ -11,7 +11,11 @@
     },
     "extra": {
       "apiUrl": "https://idine-rnsd8e1-preview-4200.runable.site/",
-      "applicationId": "idine-rnsd8e1"
+      "applicationId": "idine-rnsd8e1",
+      "router": {},
+      "eas": {
+        "projectId": "535f993b-342c-4ea5-a958-22ee26076d4d"
+      }
     },
     "ios": {
       "bundleIdentifier": "com.appId.runable",
@@ -28,13 +32,14 @@
     "scheme": "idine",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "owner": "shainu"
   }
 }
