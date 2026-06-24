@@ -74,6 +74,9 @@ export default function HistoryScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={20} color={C.white} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={s.backBtn}>
+          <Ionicons name="home" size={19} color={C.white} />
+        </TouchableOpacity>
         <Text style={s.headerTitle}>Order History</Text>
         <TouchableOpacity style={s.refreshBtn} onPress={() => refetch()}>
           <Ionicons name="refresh" size={18} color={C.white} />

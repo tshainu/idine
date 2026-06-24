@@ -65,6 +65,9 @@ export default function ReadyItemsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={20} color={C.white} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={s.backBtn}>
+          <Ionicons name="home" size={19} color={C.white} />
+        </TouchableOpacity>
         <View style={s.headerCenter}>
           <Text style={s.headerTitle}>Ready to Serve</Text>
           {orders.length > 0 && (

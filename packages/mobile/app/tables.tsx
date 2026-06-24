@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, StatusBar, Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -180,7 +180,7 @@ export default function TablesScreen() {
         <FlatList
           data={Object.entries(grouped)}
           keyExtractor={([z]) => z}
-          contentContainerStyle={{ padding: 14, paddingBottom: 110 }}
+          contentContainerStyle={{ padding: 14, paddingBottom: 140 }}
           renderItem={({ item: [zone, zoneTables] }) => (
             <View style={{ marginBottom: 22 }}>
               <View style={s.zoneRow}>
@@ -242,6 +242,7 @@ export function BottomNav({ active, router, onLogout }: {
   router: any;
   onLogout?: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const items = [
     { key: "history",       icon: "time-outline",              label: "History",        route: "/history" },
     { key: "notifications", icon: "notifications-outline",     label: "Alerts",         route: "/notifications" },
@@ -250,7 +251,7 @@ export function BottomNav({ active, router, onLogout }: {
   ] as const;
 
   return (
-    <View style={nav.bar}>
+    <View style={[nav.bar, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
       {items.map(item => {
         const isActive = active === item.key;
         return (
@@ -282,7 +283,7 @@ const nav = StyleSheet.create({
     position: "absolute", bottom: 0, left: 0, right: 0,
     flexDirection: "row",
     backgroundColor: C.navBg,
-    paddingTop: 10, paddingBottom: 22,
+    paddingTop: 10,
     borderTopWidth: 1, borderTopColor: "#1E2D8A",
   },
   item: { flex: 1, alignItems: "center", gap: 3 },

@@ -4,7 +4,7 @@ import {
   ActivityIndicator, StatusBar, ScrollView, TextInput,
   Alert, Image, KeyboardAvoidingView, Platform, Modal, FlatList,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,6 +54,7 @@ export default function WaiterOrderScreen() {
   }>();
   const router = useRouter();
   const qc = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   const [user, setUser] = useState<WaiterUser | null>(null);
   const [time, setTime] = useState(getTime());
@@ -63,6 +64,8 @@ export default function WaiterOrderScreen() {
   const [customerName, setCustomerName] = useState("");
   const [showCart, setShowCart] = useState(true);
   const [showHoldList, setShowHoldList] = useState(false);
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
 
   useEffect(() => {
     loadUser().then(setUser);
@@ -292,6 +295,9 @@ export default function WaiterOrderScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.headerIconBtn}>
           <Ionicons name="arrow-back" size={19} color={C.white} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={s.headerIconBtn}>
+          <Ionicons name="home" size={18} color={C.white} />
+        </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Table {tableName}</Text>
           <Text style={s.headerSub}>{user?.name ?? "Waiter"}  ·  {time}</Text>
@@ -307,20 +313,27 @@ export default function WaiterOrderScreen() {
 
       {/* ── Customer name — always visible ── */}
       <View style={s.customerBar}>
-        <Ionicons name="person-outline" size={16} color={C.accent} />
+        <Ionicons name="person-outline" size={15} color={C.accent} />
         <TextInput
           style={s.customerBarInput}
-          placeholder="Customer name (optional)"
+          placeholder="Search or add customer"
           placeholderTextColor={C.muted}
           value={customerName}
           onChangeText={setCustomerName}
           returnKeyType="done"
         />
         {customerName !== "" && (
-          <TouchableOpacity onPress={() => setCustomerName("")}>
-            <Ionicons name="close-circle" size={16} color={C.muted} />
+          <TouchableOpacity onPress={() => setCustomerName("")} hitSlop={8}>
+            <Ionicons name="close-circle" size={15} color={C.muted} />
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={s.addCustomerBtn}
+          onPress={() => setShowNewCustomer(true)}
+          hitSlop={6}
+        >
+          <Ionicons name="add" size={18} color={C.white} />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -574,7 +587,7 @@ export default function WaiterOrderScreen() {
       </KeyboardAvoidingView>
 
       {/* ── Bottom Nav ── */}
-      <View style={s.bottomNav}>
+      <View style={[s.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         <TouchableOpacity style={s.navItem} onPress={() => router.push("/history" as any)}>
           <Ionicons name="time-outline" size={21} color={C.muted} />
           <Text style={s.navLabel}>History</Text>
@@ -632,6 +645,46 @@ export default function WaiterOrderScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── New Customer Modal ── */}
+      <Modal visible={showNewCustomer} transparent animationType="fade" onRequestClose={() => setShowNewCustomer(false)}>
+        <View style={m.centerOverlay}>
+          <View style={m.centerCard}>
+            <View style={m.sheetHeader}>
+              <Text style={m.sheetTitle}>Add Customer</Text>
+              <TouchableOpacity onPress={() => setShowNewCustomer(false)}>
+                <Ionicons name="close" size={22} color={C.muted} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 18, gap: 14 }}>
+              <View style={s.newCustInputWrap}>
+                <Ionicons name="person-outline" size={16} color={C.accent} />
+                <TextInput
+                  style={s.newCustInput}
+                  placeholder="Customer name"
+                  placeholderTextColor={C.muted}
+                  value={newCustomerName}
+                  onChangeText={setNewCustomerName}
+                  autoFocus
+                  returnKeyType="done"
+                />
+              </View>
+              <TouchableOpacity
+                style={[s.actionBtn, s.placeBtn, !newCustomerName.trim() && { opacity: 0.5 }]}
+                disabled={!newCustomerName.trim()}
+                onPress={() => {
+                  setCustomerName(newCustomerName.trim());
+                  setNewCustomerName("");
+                  setShowNewCustomer(false);
+                }}
+              >
+                <Ionicons name="checkmark" size={16} color={C.white} />
+                <Text style={s.placeBtnTxt}>Add Customer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -658,14 +711,24 @@ const s = StyleSheet.create({
   },
   cartBadgeTxt: { color: C.white, fontSize: 10, fontWeight: "800" },
 
-  // Customer bar (always visible)
+  // Customer bar (always visible) — compact
   customerBar: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: C.light, marginHorizontal: 12, marginTop: 8, marginBottom: 6,
-    borderRadius: 12, borderWidth: 2, borderColor: C.accent,
-    paddingHorizontal: 14, paddingVertical: 10,
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: C.white, marginHorizontal: 12, marginTop: 8, marginBottom: 4,
+    borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    paddingLeft: 12, paddingRight: 4, paddingVertical: 4, height: 40,
   },
-  customerBarInput: { flex: 1, fontSize: 15, color: C.navy, fontWeight: "700" },
+  customerBarInput: { flex: 1, fontSize: 13, color: C.navy, fontWeight: "600" },
+  addCustomerBtn: {
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: C.accent, alignItems: "center", justifyContent: "center",
+  },
+  newCustInputWrap: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 12, height: 46, backgroundColor: C.card,
+  },
+  newCustInput: { flex: 1, fontSize: 14, color: C.navy, fontWeight: "600" },
 
   // Order panel
   orderPanel: {
@@ -794,7 +857,7 @@ const s = StyleSheet.create({
     position: "absolute", bottom: 0, left: 0, right: 0,
     flexDirection: "row",
     backgroundColor: C.navBg,
-    paddingTop: 10, paddingBottom: 28,
+    paddingTop: 10,
     borderTopWidth: 1, borderTopColor: "#1E2D8A",
   },
   navItem: { flex: 1, alignItems: "center", gap: 3 },
@@ -804,6 +867,8 @@ const s = StyleSheet.create({
 // ── Hold list modal styles ───────────────────────────────────────
 const m = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "#00000066", justifyContent: "flex-end" },
+  centerOverlay: { flex: 1, backgroundColor: "#00000066", justifyContent: "center", paddingHorizontal: 24 },
+  centerCard: { backgroundColor: C.white, borderRadius: 18 },
   sheet: {
     backgroundColor: C.white, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     maxHeight: "60%", paddingBottom: 30,

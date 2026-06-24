@@ -83,6 +83,8 @@ export const tables = sqliteTable("tables", {
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
   capacity: integer("capacity").default(4),
+  status: text("status").notNull().default("available"),
+  zone: text("zone").default("Main Hall"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
 
