@@ -1,8 +1,8 @@
 import { hc } from "hono/client";
 import Constants from "expo-constants";
-import type { AppType } from "@template/web";
+import type { AppType } from "./api-types";
 
-const baseUrl =
+const baseUrl: string =
   Constants.expoConfig?.extra?.apiUrl ??
   process.env.EXPO_PUBLIC_API_URL ??
   "https://idine-rnsd8e1-preview-4200.runable.site/";
