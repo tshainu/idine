@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
+import { setUser } from "../lib/store";
 
 const PINS = [1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "✓"] as const;
 
@@ -17,9 +18,11 @@ export default function Login() {
       return res.json();
     },
     onSuccess: (data: any) => {
-      localStorage.setItem("user", JSON.stringify(data));
-      if (data.role === "admin") navigate("/admin");
-      else if (data.role === "kds") navigate("/kds");
+      const user = data?.user ?? data;
+      setUser(user);
+      const role = user?.role;
+      if (role === "superadmin" || role === "admin" || role === "manager") navigate("/admin");
+      else if (role === "kitchen" || role === "kds") navigate("/kds");
       else navigate("/pos");
     },
     onError: () => {
