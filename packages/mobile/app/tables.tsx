@@ -350,7 +350,6 @@ const s = StyleSheet.create({
   tableCard: {
     width: "30%", minWidth: 96,
     backgroundColor: C.white, borderRadius: 14,
-    overflow: "hidden",
     shadowColor: C.navy, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },

@@ -210,7 +210,7 @@ export default function WaiterOrderScreen() {
       return orderId;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tables"] });
+      qc.invalidateQueries({ queryKey: ["tables"], exact: false });
       qc.invalidateQueries({ queryKey: ["kds-orders"] });
       Alert.alert("Order Placed ✅", "KOT sent to kitchen.", [
         { text: "New Order", onPress: () => { setCart({}); setCustomerName(""); } },
@@ -284,16 +284,13 @@ export default function WaiterOrderScreen() {
   const busy = placeOrder.isPending || holdOrder.isPending;
 
   return (
-    <SafeAreaView style={s.safe} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
 
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.headerIconBtn}>
           <Ionicons name="arrow-back" size={19} color={C.white} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/tables" as any)} style={[s.headerIconBtn, { marginRight: 4 }]}>
-          <Ionicons name="home-outline" size={19} color={C.white} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Table {tableName}</Text>
@@ -664,19 +661,17 @@ const s = StyleSheet.create({
   // Customer bar (always visible)
   customerBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: C.white, marginHorizontal: 12, marginTop: 10, marginBottom: 2,
-    borderRadius: 12, borderWidth: 1.5, borderColor: C.accent + "88",
-    paddingHorizontal: 12, paddingVertical: 8,
-    shadowColor: C.navy, shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    backgroundColor: C.light, marginHorizontal: 12, marginTop: 8, marginBottom: 6,
+    borderRadius: 12, borderWidth: 2, borderColor: C.accent,
+    paddingHorizontal: 14, paddingVertical: 10,
   },
-  customerBarInput: { flex: 1, fontSize: 14, color: C.navy, fontWeight: "600" },
+  customerBarInput: { flex: 1, fontSize: 15, color: C.navy, fontWeight: "700" },
 
   // Order panel
   orderPanel: {
     backgroundColor: C.white, margin: 12, borderRadius: 16,
     shadowColor: C.navy, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-    elevation: 3, overflow: "hidden",
+    elevation: 3,
     borderWidth: 2, borderColor: C.accent,
   },
   panelHeader: { padding: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: C.border },
@@ -796,9 +791,10 @@ const s = StyleSheet.create({
 
   // Bottom nav
   bottomNav: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
     flexDirection: "row",
     backgroundColor: C.navBg,
-    paddingTop: 10, paddingBottom: 22,
+    paddingTop: 10, paddingBottom: 28,
     borderTopWidth: 1, borderTopColor: "#1E2D8A",
   },
   navItem: { flex: 1, alignItems: "center", gap: 3 },
