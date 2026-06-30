@@ -3,7 +3,50 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, X, Upload, ImageIcon, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, X, Upload, ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, TrendingUp } from "lucide-react";
+
+function MarginBadge({ salePrice, costPrice }: { salePrice: number; costPrice: number }) {
+  if (!costPrice || costPrice <= 0) return <span style={{ color: "#6B7280", fontSize: 11 }}>—</span>;
+  const margin = ((salePrice - costPrice) / salePrice) * 100;
+  const color = margin >= 60 ? "#22C55E" : margin >= 40 ? "#F5A623" : margin >= 20 ? "#F97316" : "#EF4444";
+  return (
+    <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+      style={{ background: `${color}22`, color, border: `1px solid ${color}44` }}>
+      {margin.toFixed(1)}%
+    </span>
+  );
+}
+
+function MarginWidget({ salePrice, marginPct }: { salePrice: number; marginPct: number }) {
+  if (!salePrice) return null;
+  const sale = Number(salePrice) || 0;
+  const margin = Math.min(Math.max(Number(marginPct) || 0, 0), 100);
+  const profit = sale * (margin / 100);
+  const cost = sale - profit;
+  const color = margin >= 60 ? "#22C55E" : margin >= 40 ? "#F5A623" : margin >= 20 ? "#F97316" : "#EF4444";
+  const barW = margin;
+  return (
+    <div className="rounded-xl border p-3 space-y-2" style={{ background: "rgba(255,255,255,0.03)", borderColor: "#2D1B4E" }}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "#9CA3AF" }}>
+          <TrendingUp size={12} /> Profit Margin
+        </span>
+        <span className="text-sm font-bold" style={{ color }}>{margin > 0 ? `${margin.toFixed(1)}%` : "Enter margin %"}</span>
+      </div>
+      {margin > 0 && (
+        <>
+          <div className="w-full rounded-full h-1.5" style={{ background: "#2D1B4E" }}>
+            <div className="h-1.5 rounded-full transition-all" style={{ width: `${barW}%`, background: color }} />
+          </div>
+          <div className="flex justify-between text-xs" style={{ color: "#6B7280" }}>
+            <span>Cost: <span style={{ color: "#EF4444", fontWeight: 600 }}>LKR {cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
+            <span>Profit: <span style={{ color, fontWeight: 600 }}>LKR {profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const GOLD = "#F5A623";
 const BG = "#0D0618";
@@ -293,6 +336,12 @@ export default function ProductsPage() {
       priceDineIn: item.priceDineIn ?? item.price ?? "",
       priceTakeaway: item.priceTakeaway ?? item.price ?? "",
       priceDelivery: item.priceDelivery ?? item.price ?? "",
+      marginPercent: (() => {
+        const sale = Number(item.priceDineIn ?? item.price ?? 0);
+        const cost = Number(item.costPrice ?? 0);
+        if (!sale || !cost) return "";
+        return ((sale - cost) / sale * 100).toFixed(1);
+      })(),
       description: item.description || "",
       imageUrl: item.imageUrl ?? "",
       loyaltyPoint: item.loyaltyPoint ?? 0,
@@ -313,6 +362,11 @@ export default function ProductsPage() {
       priceDineIn: pDineIn,
       priceTakeaway: Number(form.priceTakeaway) || 0,
       priceDelivery: Number(form.priceDelivery) || 0,
+      costPrice: (() => {
+        const sale = Number(form.priceDineIn) || 0;
+        const pct = Math.min(Math.max(Number(form.marginPercent) || 0, 0), 100);
+        return sale > 0 && pct > 0 ? sale * (1 - pct / 100) : 0;
+      })(),
       loyaltyPoint: Number(form.loyaltyPoint) || 0,
       categoryId: Number(form.categoryId) || null,
       sortOrder: Number(form.sortOrder) || 0,
@@ -393,6 +447,7 @@ export default function ProductsPage() {
                     { label: "Dine In", key: "priceDineIn" },
                     { label: "Takeaway", key: "priceTakeaway" },
                     { label: "Delivery", key: "priceDelivery" },
+                    { label: "Margin", key: null },
                     { label: "Tags", key: null },
                     { label: "Active", key: null },
                     { label: "Actions", key: null },
@@ -414,9 +469,9 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={9} className="text-center py-10 text-xs" style={{ color: DIM }}>Loading...</td></tr>
+                  <tr><td colSpan={10} className="text-center py-10 text-xs" style={{ color: DIM }}>Loading...</td></tr>
                 ) : sortedItems.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-10 text-xs" style={{ color: DIM }}>No items found</td></tr>
+                  <tr><td colSpan={10} className="text-center py-10 text-xs" style={{ color: DIM }}>No items found</td></tr>
                 ) : sortedItems.map((m: any) => (
                   <tr key={m.id} className="border-t" style={{ borderColor: BORD }}>
                     <td className="px-4 py-3 text-xs font-medium" style={{ color: TEXT }}>{m.name}</td>
@@ -425,6 +480,9 @@ export default function ProductsPage() {
                     <td className="px-4 py-3 text-xs font-semibold" style={{ color: GOLD }}>{Number(m.priceDineIn || m.price).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>{Number(m.priceTakeaway || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>{Number(m.priceDelivery || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <MarginBadge salePrice={Number(m.priceDineIn || m.price || 0)} costPrice={Number(m.costPrice || 0)} />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {m.isVeg && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(74,222,128,0.15)", color: "#4ADE80" }}>Veg</span>}
@@ -503,6 +561,21 @@ export default function ProductsPage() {
                   <input type="number" value={form.priceDelivery ?? ""}
                     onChange={e => setForm(p => ({ ...p, priceDelivery: e.target.value }))}
                     placeholder="0.00" className={inputCls} style={inputStyle()} />
+                </div>
+              </div>
+
+              {/* Row 2b: Margin % + Margin Widget */}
+              <div className="grid grid-cols-3 gap-3 items-start">
+                <div>
+                  <FLabel>Profit Margin (%)</FLabel>
+                  <input type="number" min="0" max="100" value={form.marginPercent ?? ""}
+                    onChange={e => setForm(p => ({ ...p, marginPercent: e.target.value }))}
+                    placeholder="e.g. 65" className={inputCls} style={inputStyle()} />
+                </div>
+                <div className="col-span-2">
+                  <div className="mt-5">
+                    <MarginWidget salePrice={Number(form.priceDineIn) || 0} marginPct={Number(form.marginPercent) || 0} />
+                  </div>
                 </div>
               </div>
 

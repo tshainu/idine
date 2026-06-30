@@ -56,6 +56,7 @@ export const menuItems = sqliteTable("menu_items", {
   priceDelivery: real("price_delivery").notNull().default(0),
   description: text("description"),
   imageUrl: text("image_url"),
+  costPrice: real("cost_price").notNull().default(0),
   loyaltyPoint: real("loyalty_point").notNull().default(0),
   isVeg: integer("is_veg", { mode: "boolean" }).notNull().default(false),
   isBeverage: integer("is_beverage", { mode: "boolean" }).notNull().default(false),

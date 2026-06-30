@@ -31,9 +31,9 @@ const C = {
 
 const STATUS_COLORS: Record<string, string> = {
   available: C.green,
-  occupied:  C.green,
+  occupied:  C.red,
   reserved:  C.purple,
-  cleaning:  C.red,
+  cleaning:  C.amber,
 };
 const STATUS_LABELS: Record<string, string> = {
   available: "Free",
@@ -43,10 +43,18 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const STATUS_BG: Record<string, string> = {
   available: "#DCFCE7",
-  occupied:  "#DCFCE7",
+  occupied:  "#FEE2E2",
   reserved:  "#F3E8FF",
-  cleaning:  "#FEE2E2",
+  cleaning:  "#FEF3C7",
 };
+
+function elapsedTime(createdAt: any): string {
+  if (!createdAt) return "";
+  const ms = Date.now() - new Date(createdAt).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
 
 function getTime() {
   const now = new Date();
@@ -86,9 +94,14 @@ export default function TablesScreen() {
 
   const statuses = ["all", "available", "occupied", "reserved", "cleaning"];
   const counts: Record<string, number> = { all: tables.length };
-  for (const t of tables) counts[t.status] = (counts[t.status] ?? 0) + 1;
+  for (const t of tables) {
+    const eff = (t.status === "occupied" || t.activeOrder) ? "occupied" : t.status;
+    counts[eff] = (counts[eff] ?? 0) + 1;
+  }
 
-  const filtered = activeTab === "all" ? tables : tables.filter(t => t.status === activeTab);
+  const filtered = activeTab === "all"
+    ? tables
+    : tables.filter(t => ((t.status === "occupied" || t.activeOrder) ? "occupied" : t.status) === activeTab);
 
   const grouped: Record<string, any[]> = {};
   for (const t of filtered) {
@@ -190,36 +203,62 @@ export default function TablesScreen() {
               </View>
               <View style={s.tableGrid}>
                 {zoneTables.map((t: any) => {
-                  const color = STATUS_COLORS[t.status] ?? C.muted;
-                  const bg    = STATUS_BG[t.status] ?? C.light;
+                  const isOccupied = t.status === "occupied" || !!t.activeOrder;
+                  const effectiveStatus = isOccupied ? "occupied" : t.status;
+                  const color  = STATUS_COLORS[effectiveStatus] ?? C.muted;
+                  const bg     = STATUS_BG[effectiveStatus] ?? C.light;
                   const locked = t.status === "cleaning";
+                  const order  = t.activeOrder;
                   return (
                     <TouchableOpacity
                       key={t.id}
                       style={[
                         s.tableCard,
                         locked && s.tableCardDisabled,
+                        isOccupied && s.tableCardOccupied,
                         { borderWidth: 2, borderColor: color },
                       ]}
                       onPress={() => {
                         if (!locked)
-                          router.push(`/waiter-order?tableId=${t.id}&name=${encodeURIComponent(t.name)}&status=${t.status}` as any);
+                          router.push(`/waiter-order?tableId=${t.id}&name=${encodeURIComponent(t.name)}&status=${effectiveStatus}` as any);
                       }}
                       activeOpacity={0.75}
                       disabled={locked}
                     >
+                      {/* top color strip */}
+                      <View style={[s.tableStrip, { backgroundColor: color }]} />
+
                       <View style={s.tableBody}>
                         <Text style={s.tableName}>{t.name}</Text>
+
                         <View style={[s.tableStatusBadge, { backgroundColor: bg }]}>
                           <View style={[s.tableDot, { backgroundColor: color }]} />
                           <Text style={[s.tableStatusTxt, { color }]}>
-                            {STATUS_LABELS[t.status] ?? t.status}
+                            {STATUS_LABELS[effectiveStatus] ?? effectiveStatus}
                           </Text>
                         </View>
-                        <View style={s.tableCapRow}>
-                          <Ionicons name="people-outline" size={12} color={C.muted} />
-                          <Text style={s.tableCap}>{t.capacity}</Text>
-                        </View>
+
+                        {/* Occupied details */}
+                        {isOccupied ? (
+                          <View style={s.occupiedInfo}>
+                            <View style={s.occupiedRow}>
+                              <Ionicons name="fast-food-outline" size={11} color={C.red} />
+                              <Text style={s.occupiedItems}>{order.itemCount} item{order.itemCount !== 1 ? "s" : ""}</Text>
+                            </View>
+                            <View style={s.occupiedRow}>
+                              <Ionicons name="time-outline" size={11} color={C.muted} />
+                              <Text style={s.occupiedTime}>{elapsedTime(order.createdAt)}</Text>
+                            </View>
+                            {order.customerName && order.customerName !== "Walk-in Customer" && (
+                              <Text style={s.occupiedCustomer} numberOfLines={1}>{order.customerName}</Text>
+                            )}
+                          </View>
+                        ) : (
+                          <View style={s.tableCapRow}>
+                            <Ionicons name="people-outline" size={12} color={C.muted} />
+                            <Text style={s.tableCap}>{t.capacity} seats</Text>
+                          </View>
+                        )}
                       </View>
                     </TouchableOpacity>
                   );
@@ -351,12 +390,17 @@ const s = StyleSheet.create({
   tableCard: {
     width: "30%", minWidth: 96,
     backgroundColor: C.white, borderRadius: 14,
+    overflow: "hidden",
     shadowColor: C.navy, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   tableCardDisabled: { opacity: 0.45 },
+  tableCardOccupied: {
+    shadowOpacity: 0.18, shadowColor: C.red, elevation: 5,
+  },
+  tableStrip: { height: 4, width: "100%" },
   tableColorBar: { height: 5 },
-  tableBody: { padding: 10, alignItems: "center", gap: 6 },
+  tableBody: { padding: 10, alignItems: "center", gap: 5 },
   tableName: { color: C.navy, fontSize: 16, fontWeight: "800" },
   tableStatusBadge: {
     flexDirection: "row", alignItems: "center", gap: 4,
@@ -366,4 +410,9 @@ const s = StyleSheet.create({
   tableStatusTxt: { fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
   tableCapRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   tableCap: { color: C.muted, fontSize: 11 },
+  occupiedInfo: { alignItems: "center", gap: 3, width: "100%" },
+  occupiedRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  occupiedItems: { color: C.red, fontSize: 11, fontWeight: "700" },
+  occupiedTime: { color: C.muted, fontSize: 10 },
+  occupiedCustomer: { color: C.navy, fontSize: 9, fontWeight: "600", maxWidth: "100%" },
 });

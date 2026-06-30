@@ -21,9 +21,8 @@ export default function Login() {
       const user = data?.user ?? data;
       setUser(user);
       const role = user?.role;
-      if (role === "superadmin" || role === "admin" || role === "manager") navigate("/admin");
-      else if (role === "kitchen" || role === "kds") navigate("/kds");
-      else navigate("/pos");
+      if (role === "kitchen" || role === "kds") navigate("/kds");
+      else navigate("/home");
     },
     onError: () => {
       setError("Invalid PIN. Try again.");

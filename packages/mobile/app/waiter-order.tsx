@@ -66,6 +66,8 @@ export default function WaiterOrderScreen() {
   const [showHoldList, setShowHoldList] = useState(false);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [newCustomerLocation, setNewCustomerLocation] = useState("");
 
   useEffect(() => {
     loadUser().then(setUser);
@@ -289,11 +291,11 @@ export default function WaiterOrderScreen() {
   const busy = placeOrder.isPending || holdOrder.isPending;
 
   return (
-    <SafeAreaView style={s.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={s.safe} edges={["left", "right", "bottom"]}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
 
-      {/* ── Header ── */}
-      <View style={s.header}>
+      {/* ── Header (absorbs top safe area) ── */}
+      <View style={[s.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.headerIconBtn}>
           <Ionicons name="arrow-back" size={19} color={C.white} />
         </TouchableOpacity>
@@ -658,30 +660,59 @@ export default function WaiterOrderScreen() {
                 <Ionicons name="close" size={22} color={C.muted} />
               </TouchableOpacity>
             </View>
-            <View style={{ padding: 18, gap: 14 }}>
+            <View style={{ padding: 18, gap: 12 }}>
+              {/* Name */}
               <View style={s.newCustInputWrap}>
                 <Ionicons name="person-outline" size={16} color={C.accent} />
                 <TextInput
                   style={s.newCustInput}
-                  placeholder="Customer name"
+                  placeholder="Name (optional)"
                   placeholderTextColor={C.muted}
                   value={newCustomerName}
                   onChangeText={setNewCustomerName}
                   autoFocus
+                  returnKeyType="next"
+                />
+              </View>
+              {/* Phone */}
+              <View style={s.newCustInputWrap}>
+                <Ionicons name="call-outline" size={16} color={C.accent} />
+                <TextInput
+                  style={s.newCustInput}
+                  placeholder="Phone (optional)"
+                  placeholderTextColor={C.muted}
+                  value={newCustomerPhone}
+                  onChangeText={setNewCustomerPhone}
+                  keyboardType="phone-pad"
+                  returnKeyType="next"
+                />
+              </View>
+              {/* Location */}
+              <View style={s.newCustInputWrap}>
+                <Ionicons name="location-outline" size={16} color={C.accent} />
+                <TextInput
+                  style={s.newCustInput}
+                  placeholder="Location (optional)"
+                  placeholderTextColor={C.muted}
+                  value={newCustomerLocation}
+                  onChangeText={setNewCustomerLocation}
                   returnKeyType="done"
                 />
               </View>
               <TouchableOpacity
-                style={[s.actionBtn, s.placeBtn, !newCustomerName.trim() && { opacity: 0.5 }]}
-                disabled={!newCustomerName.trim()}
+                style={[s.actionBtn, s.placeBtn, { justifyContent: "center", marginTop: 4 }]}
                 onPress={() => {
-                  setCustomerName(newCustomerName.trim());
+                  const parts = [newCustomerName.trim(), newCustomerPhone.trim(), newCustomerLocation.trim()].filter(Boolean);
+                  const label = newCustomerName.trim() || newCustomerPhone.trim() || newCustomerLocation.trim() || "";
+                  if (label) setCustomerName(label);
                   setNewCustomerName("");
+                  setNewCustomerPhone("");
+                  setNewCustomerLocation("");
                   setShowNewCustomer(false);
                 }}
               >
                 <Ionicons name="checkmark" size={16} color={C.white} />
-                <Text style={s.placeBtnTxt}>Add Customer</Text>
+                <Text style={s.placeBtnTxt}>Save Customer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -718,9 +749,9 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: C.white, marginHorizontal: 12, marginTop: 8, marginBottom: 4,
     borderRadius: 10, borderWidth: 1, borderColor: C.border,
-    paddingLeft: 12, paddingRight: 4, paddingVertical: 4, height: 40,
+    paddingLeft: 12, paddingRight: 4, paddingVertical: 6, minHeight: 44,
   },
-  customerBarInput: { flex: 1, fontSize: 13, color: C.navy, fontWeight: "600" },
+  customerBarInput: { flex: 1, fontSize: 13, color: C.navy, fontWeight: "600", paddingVertical: 2 },
   addCustomerBtn: {
     width: 30, height: 30, borderRadius: 8,
     backgroundColor: C.accent, alignItems: "center", justifyContent: "center",

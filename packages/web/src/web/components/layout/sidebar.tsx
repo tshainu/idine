@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, Tag, SlidersHorizontal,
   TrendingUp, Users, Percent, Monitor, ChefHat, Table2,
   Settings, BarChart3, LogOut, ChevronDown, ChevronRight, Sun, Moon,
-  ShoppingBag, Package, Building2,
+  ShoppingBag, Package, Building2, Receipt,
 } from "lucide-react";
 import { useTheme } from "../../lib/useTheme";
 import { api } from "../../lib/api";
@@ -58,6 +58,7 @@ const NAV: NavSection[] = [
       { path: "/purchases/suppliers", label: "Suppliers",        icon: Building2 },
     ],
   },
+  { id: "expenses", type: "link", label: "Expenses", icon: Receipt, path: "/expenses" },
   {
     id: "users", type: "group", label: "Users", icon: Users,
     items: [

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 export const tables = new Hono()
   .get("/", async (c) => {
@@ -9,7 +9,42 @@ export const tables = new Hono()
     const all = branchId
       ? await db.select().from(schema.tables).where(eq(schema.tables.branchId, parseInt(branchId)))
       : await db.select().from(schema.tables);
-    return c.json({ tables: all }, 200);
+
+    // fetch active orders (not paid/cancelled) grouped by tableId
+    const tableIds = all.map(t => t.id);
+    let activeOrders: any[] = [];
+    if (tableIds.length > 0) {
+      activeOrders = await db
+        .select({
+          tableId: schema.orders.tableId,
+          orderId: schema.orders.id,
+          orderNumber: schema.orders.orderNumber,
+          status: schema.orders.status,
+          createdAt: schema.orders.createdAt,
+          itemCount: sql<number>`(select count(*) from order_items where order_items.order_id = ${schema.orders.id})`,
+          customerName: schema.orders.customerName,
+        })
+        .from(schema.orders)
+        .where(
+          and(
+            inArray(schema.orders.tableId, tableIds),
+            inArray(schema.orders.status, ["pending", "confirmed", "draft", "served"])
+          )
+        );
+    }
+
+    // map tableId -> order info
+    const orderByTable: Record<number, any> = {};
+    for (const o of activeOrders) {
+      if (o.tableId) orderByTable[o.tableId] = o;
+    }
+
+    const enriched = all.map(t => ({
+      ...t,
+      activeOrder: orderByTable[t.id] ?? null,
+    }));
+
+    return c.json({ tables: enriched }, 200);
   })
   .post("/", async (c) => {
     const body = await c.req.json();
