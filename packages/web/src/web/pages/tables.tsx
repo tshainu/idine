@@ -5,9 +5,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight, Table2, QrCode, Download, X, RefreshCw } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -100,7 +100,7 @@ export default function TablesPage() {
           <div className="font-bold text-base" style={{ color: TEXT }}>Tables</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} />
             Add Table
           </button>
@@ -111,9 +111,9 @@ export default function TablesPage() {
           <div className="flex gap-3 flex-wrap">
             {[
               { label: "Total Tables", value: tables.length, color: GOLD },
-              { label: "Active", value: activeTables.length, color: "#22C55E" },
-              { label: "Inactive", value: inactiveTables.length, color: "#EF4444" },
-              { label: "Total Capacity", value: tables.reduce((s, t) => s + (t.capacity || 0), 0), color: "#38BDF8" },
+              { label: "Active", value: activeTables.length, color: "var(--color-success)" },
+              { label: "Inactive", value: inactiveTables.length, color: "var(--color-danger)" },
+              { label: "Total Capacity", value: tables.reduce((s, t) => s + (t.capacity || 0), 0), color: "var(--color-info)" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -140,7 +140,7 @@ export default function TablesPage() {
                     <span className="text-base font-bold" style={{ color: t.isActive ? TEXT : DIM }}>{t.name}</span>
                     <span className="text-xs px-1.5 py-0.5 rounded-full" style={{
                       background: t.isActive ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-                      color: t.isActive ? "#22C55E" : "#EF4444"
+                      color: t.isActive ? "var(--color-success)" : "var(--color-danger)"
                     }}>
                       {t.isActive ? "Active" : "Off"}
                     </span>
@@ -150,16 +150,16 @@ export default function TablesPage() {
                     <span>{t.capacity || 4} seats</span>
                   </div>
                   <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setQrTable(t); fetchQrToken(t); }} className="p-1 rounded" title="Download QR" style={{ color: "#38BDF8" }}>
+                    <button onClick={() => { setQrTable(t); fetchQrToken(t); }} className="p-1 rounded" title="Download QR" style={{ color: "var(--color-info)" }}>
                       <QrCode size={12} />
                     </button>
                     <button onClick={() => openEdit(t)} className="p-1 rounded text-xs" style={{ color: GOLD }}>
                       <Pencil size={12} />
                     </button>
                     <button onClick={() => toggleActive.mutate({ id: t.id, isActive: !t.isActive })} className="p-1 rounded">
-                      {t.isActive ? <ToggleRight size={15} color="#22C55E" /> : <ToggleLeft size={15} color={DIM} />}
+                      {t.isActive ? <ToggleRight size={15} color="var(--color-success)" /> : <ToggleLeft size={15} color={DIM} />}
                     </button>
-                    <button onClick={() => { if (confirm(`Delete table ${t.name}?`)) deleteTable.mutate(t.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                    <button onClick={() => { if (confirm(`Delete table ${t.name}?`)) deleteTable.mutate(t.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}>
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -213,7 +213,7 @@ export default function TablesPage() {
 
               {/* URL */}
               {menuUrl && (
-                <div className="w-full text-[9px] px-2 py-1.5 rounded border mb-3 truncate" style={{ background: "#0D0618", borderColor: BORD, color: MUTED }}>
+                <div className="w-full text-[9px] px-2 py-1.5 rounded border mb-3 truncate" style={{ background: "var(--color-bg)", borderColor: BORD, color: MUTED }}>
                   {menuUrl}
                 </div>
               )}
@@ -222,7 +222,7 @@ export default function TablesPage() {
                 {qrSrc ? (
                   <a href={qrSrc} download={`table-${qrTable.name}-qr.png`} target="_blank" rel="noreferrer"
                     className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold"
-                    style={{ background: GOLD, color: "#1A0A2E" }}>
+                    style={{ background: GOLD, color: "var(--color-surface)" }}>
                     <Download size={13} /> Download QR
                   </a>
                 ) : (
@@ -270,7 +270,7 @@ export default function TablesPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.name?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Create"}
               </button>
             </div>

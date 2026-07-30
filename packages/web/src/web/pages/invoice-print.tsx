@@ -148,7 +148,7 @@ export default function InvoicePrint() {
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => window.print()} style={{
             display: "flex", alignItems: "center", gap: 6,
-            background: "#f5a623", color: "#111827", border: "none",
+            background: "var(--color-gold)", color: "#111827", border: "none",
             padding: "7px 16px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
             fontFamily: "sans-serif",
           }}>

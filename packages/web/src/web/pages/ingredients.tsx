@@ -5,10 +5,10 @@ import { Sidebar } from "../components/layout/sidebar";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
-const GOLD = "#F5A623";
+const GOLD = "var(--color-gold)";
 const TEXT = "#F3F4F6";
 const MUTED = "#9CA3AF";
 
@@ -74,7 +74,7 @@ export default function IngredientsPage() {
             <span className="font-bold text-base" style={{ color: TEXT }}>Ingredients</span>
             <span className="text-xs px-2 py-0.5 rounded-full ml-1" style={{ background: "rgba(245,166,35,0.15)", color: GOLD }}>{items.length}</span>
           </div>
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={15} /> Add Ingredient
           </button>
         </div>
@@ -92,8 +92,8 @@ export default function IngredientsPage() {
           <div className="grid grid-cols-3 gap-4 mb-6">
             {[
               { label: "Total Items", value: items.length, color: GOLD },
-              { label: "Low Stock", value: lowStock.length, color: "#EF4444" },
-              { label: "Total Value", value: `Rs. ${items.reduce((s, i) => s + i.stockQty * i.costPerUnit, 0).toFixed(2)}`, color: "#22C55E" },
+              { label: "Low Stock", value: lowStock.length, color: "var(--color-danger)" },
+              { label: "Total Value", value: `Rs. ${items.reduce((s, i) => s + i.stockQty * i.costPerUnit, 0).toFixed(2)}`, color: "var(--color-success)" },
             ].map(s => (
               <div key={s.label} className="rounded-xl p-4 border" style={{ background: SURF, borderColor: BORD }}>
                 <div className="text-xs mb-1" style={{ color: MUTED }}>{s.label}</div>
@@ -131,7 +131,7 @@ export default function IngredientsPage() {
                     <tr key={i.id} style={{ background: idx % 2 === 0 ? BG : "rgba(26,10,46,0.4)", borderTop: `1px solid ${BORD}` }}>
                       <td className="px-4 py-3 font-medium" style={{ color: TEXT }}>{i.name}</td>
                       <td className="px-4 py-3" style={{ color: MUTED }}>{i.unit}</td>
-                      <td className="px-4 py-3 font-mono" style={{ color: isLow ? "#EF4444" : "#22C55E" }}>{i.stockQty}</td>
+                      <td className="px-4 py-3 font-mono" style={{ color: isLow ? "var(--color-danger)" : "var(--color-success)" }}>{i.stockQty}</td>
                       <td className="px-4 py-3 font-mono" style={{ color: MUTED }}>{i.minStockQty}</td>
                       <td className="px-4 py-3 font-mono" style={{ color: TEXT }}>Rs. {i.costPerUnit.toFixed(2)}</td>
                       <td className="px-4 py-3 font-mono" style={{ color: GOLD }}>Rs. {(i.stockQty * i.costPerUnit).toFixed(2)}</td>
@@ -143,7 +143,7 @@ export default function IngredientsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button onClick={() => openEdit(i)} className="p-1 rounded hover:opacity-80" style={{ color: GOLD }}><Pencil size={14} /></button>
-                          <button onClick={() => { if (confirm(`Delete "${i.name}"?`)) deleteIng.mutate(i.id); }} className="p-1 rounded hover:opacity-80" style={{ color: "#EF4444" }}><Trash2 size={14} /></button>
+                          <button onClick={() => { if (confirm(`Delete "${i.name}"?`)) deleteIng.mutate(i.id); }} className="p-1 rounded hover:opacity-80" style={{ color: "var(--color-danger)" }}><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
@@ -191,7 +191,7 @@ export default function IngredientsPage() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={closeModal} className="flex-1 py-2 rounded-lg text-sm border" style={{ borderColor: BORD, color: MUTED }}>Cancel</button>
-              <button onClick={handleSubmit} disabled={createIng.isPending || updateIng.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>
+              <button onClick={handleSubmit} disabled={createIng.isPending || updateIng.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {createIng.isPending || updateIng.isPending ? "Saving..." : modal === "create" ? "Add" : "Save"}
               </button>
             </div>

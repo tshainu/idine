@@ -71,7 +71,7 @@ export function DraftSalesModal({ branchId, onClose, onLoad }: {
               </div>
               <div className="text-right">
                 <div className="text-xs font-bold" style={{ color: TEXT }}>{money(o.total)}</div>
-                <div className="text-[10px] uppercase mt-0.5 px-1.5 py-0.5 rounded inline-block" style={{ background: "#F5A62322", color: "#F5A623" }}>{o.type}</div>
+                <div className="text-[10px] uppercase mt-0.5 px-1.5 py-0.5 rounded inline-block" style={{ background: "var(--color-gold)22", color: "var(--color-gold)" }}>{o.type}</div>
               </div>
             </button>
           ))}
@@ -95,8 +95,8 @@ const STATUS_LABEL: Record<SaleStatus, string> = {
 
 const STATUS_COLOR: Record<SaleStatus, string> = {
   all: GOLD,
-  completed: "#22C55E",
-  refunded: "#EF4444",
+  completed: "var(--color-success)",
+  refunded: "var(--color-danger)",
   partially_refunded: "#F97316",
 };
 
@@ -157,7 +157,7 @@ export function RecentSalesModal({ branchId, onClose, onView, onReprint }: {
           : sales.map((o: any) => {
             const isRefund = o.status === "refunded";
             const isPartial = o.status === "partially_refunded";
-            const badgeColor = isRefund ? "#EF4444" : isPartial ? "#F97316" : "#22C55E";
+            const badgeColor = isRefund ? "var(--color-danger)" : isPartial ? "#F97316" : "var(--color-success)";
             const badgeLabel = isRefund ? "Refunded" : isPartial ? "Partial Ref." : "Completed";
             return (
               <div key={o.id}
@@ -171,7 +171,7 @@ export function RecentSalesModal({ branchId, onClose, onView, onReprint }: {
                   <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>{o.customerName || "Walk-in"} · {fmtTime(o.createdAt)}</div>
                 </div>
                 <div className="text-right mr-3">
-                  <div className="text-xs font-bold" style={{ color: isRefund || isPartial ? "#EF4444" : TEXT }}>{money(o.total)}</div>
+                  <div className="text-xs font-bold" style={{ color: isRefund || isPartial ? "var(--color-danger)" : TEXT }}>{money(o.total)}</div>
                   <div className="text-[10px] uppercase mt-0.5" style={{ color: DIM }}>{o.type}</div>
                 </div>
                 <button onClick={() => onReprint(o.id)} title="Reprint invoice"
@@ -232,8 +232,14 @@ export function RegistryModal({ branchId, onClose }: { branchId: number; onClose
     const start = new Date(); start.setHours(0, 0, 0, 0);
     const startTs = start.getTime();
     const isToday = (o: any) => {
-      const t = (o.createdAt ?? 0); const ms = t < 1e12 ? t * 1000 : t;
-      return ms >= startTs;
+      const raw = o.createdAt ?? 0;
+      let ms: number;
+      if (typeof raw === "number") {
+        ms = raw < 1e12 ? raw * 1000 : raw;
+      } else {
+        ms = new Date(raw).getTime();
+      }
+      return !isNaN(ms) && ms >= startTs;
     };
     const today = orders.filter(isToday);
     const completed = today.filter((o: any) => o.status === "completed");
@@ -273,15 +279,15 @@ export function RegistryModal({ branchId, onClose }: { branchId: number; onClose
             <Stat label="Total Orders" value={String(summary.totalOrders)} />
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <Stat label="Running" value={String(summary.runningCount)} accent="#38BDF8" />
-            <Stat label="Cancelled" value={String(summary.cancelledCount)} accent="#EF4444" />
+            <Stat label="Running" value={String(summary.runningCount)} accent="var(--color-info)" />
+            <Stat label="Cancelled" value={String(summary.cancelledCount)} accent="var(--color-danger)" />
           </div>
           <div className="text-[11px] uppercase tracking-wide mb-2" style={{ color: DIM }}>Sales by Type</div>
           <div className="rounded-lg border overflow-hidden" style={{ borderColor: BORD }}>
             {[
-              { label: "Dine In", d: summary.dineIn, color: "#22C55E" },
-              { label: "Take Away", d: summary.takeaway, color: "#F5A623" },
-              { label: "Delivery", d: summary.delivery, color: "#38BDF8" },
+              { label: "Dine In", d: summary.dineIn, color: "var(--color-success)" },
+              { label: "Take Away", d: summary.takeaway, color: "var(--color-gold)" },
+              { label: "Delivery", d: summary.delivery, color: "var(--color-info)" },
             ].map((row, i) => (
               <div key={row.label} className="flex items-center justify-between px-4 py-2.5"
                 style={{ background: i % 2 ? SURF2 : SURF, borderTop: i ? `1px solid ${BORD}` : "none" }}>
@@ -403,8 +409,8 @@ export function RefundModal({ branchId, onClose }: {
   if (done) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
       <div className="rounded-lg border flex flex-col items-center p-10 gap-4" style={{ background: SURF, borderColor: BORD, width: 380 }}>
-        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#22C55E22" }}>
-          <Check size={28} style={{ color: "#22C55E" }} />
+        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "var(--color-success)22" }}>
+          <Check size={28} style={{ color: "var(--color-success)" }} />
         </div>
         <div className="text-sm font-bold" style={{ color: TEXT }}>Refund Processed</div>
         <div className="text-xs" style={{ color: MUTED }}>{done.orderNumber} — Rs {Number(done.total).toFixed(2)} refunded</div>
@@ -446,7 +452,7 @@ export function RefundModal({ branchId, onClose }: {
                           setMode("full"); setConfirmed(false); setReason("");
                         }}
                         className="w-full flex items-start justify-between px-3 py-2.5 rounded mb-1 border text-left transition-all"
-                        style={{ background: isActive ? "#F5A62318" : SURF2, borderColor: isActive ? GOLD : BORD }}>
+                        style={{ background: isActive ? "var(--color-gold)18" : SURF2, borderColor: isActive ? GOLD : BORD }}>
                         <div>
                           <div className="text-xs font-bold font-mono" style={{ color: GOLD }}>{o.orderNumber}</div>
                           <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>{o.customerName || "Walk-in"}</div>
@@ -454,7 +460,7 @@ export function RefundModal({ branchId, onClose }: {
                         </div>
                         <div className="text-right">
                           <div className="text-xs font-bold" style={{ color: TEXT }}>{money(o.total)}</div>
-                          {isPartial && <div className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded" style={{ background: "#F5A62322", color: "#F5A623" }}>Partial</div>}
+                          {isPartial && <div className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded" style={{ background: "var(--color-gold)22", color: "var(--color-gold)" }}>Partial</div>}
                         </div>
                       </button>
                     );
@@ -544,18 +550,18 @@ export function RefundModal({ branchId, onClose }: {
               {/* Footer */}
               <div className="px-5 py-3 border-t shrink-0" style={{ borderColor: BORD }}>
                 {refundMut.isError && (
-                  <div className="flex items-center gap-2 mb-2 text-xs px-3 py-2 rounded" style={{ background: "#EF444422", color: "#EF4444" }}>
+                  <div className="flex items-center gap-2 mb-2 text-xs px-3 py-2 rounded" style={{ background: "var(--color-danger)22", color: "var(--color-danger)" }}>
                     <AlertTriangle size={12} /> {(refundMut.error as any)?.message || "Refund failed"}
                   </div>
                 )}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs" style={{ color: MUTED }}>Refund Amount</span>
-                  <span className="text-base font-bold" style={{ color: "#EF4444" }}>- {money(refundTotal)}</span>
+                  <span className="text-base font-bold" style={{ color: "var(--color-danger)" }}>- {money(refundTotal)}</span>
                 </div>
                 {!confirmed ? (
                   <button onClick={() => setConfirmed(true)}
                     className="w-full py-2.5 rounded text-xs font-bold border transition-all"
-                    style={{ background: "#EF444422", color: "#EF4444", borderColor: "#EF4444" }}>
+                    style={{ background: "var(--color-danger)22", color: "var(--color-danger)", borderColor: "var(--color-danger)" }}>
                     Process Refund
                   </button>
                 ) : (
@@ -568,7 +574,7 @@ export function RefundModal({ branchId, onClose }: {
                     <button onClick={() => refundMut.mutate()}
                       disabled={refundMut.isPending}
                       className="flex-1 py-2.5 rounded text-xs font-bold flex items-center justify-center gap-1"
-                      style={{ background: "#EF4444", color: "#fff" }}>
+                      style={{ background: "var(--color-danger)", color: "#fff" }}>
                       {refundMut.isPending ? <Spinner size={12} /> : <><Check size={13} /> Confirm Refund</>}
                     </button>
                   </div>
@@ -728,7 +734,7 @@ export function QROrdersModal({ branchId, onClose }: { branchId: number; onClose
               <span className="font-bold text-sm" style={{ color: TEXT }}>QR Table Orders</span>
               {pendingOrders.length > 0 && (
                 <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
-                  style={{ background: "#EF4444", color: "#fff" }}>{pendingOrders.length} pending</span>
+                  style={{ background: "var(--color-danger)", color: "#fff" }}>{pendingOrders.length} pending</span>
               )}
             </div>
           </div>
@@ -795,14 +801,14 @@ export function QROrdersModal({ branchId, onClose }: { branchId: number; onClose
                       onClick={() => rejectOrder(order)}
                       disabled={processing.has(order.id)}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-50 shrink-0"
-                      style={{ borderColor: "#EF4444", color: "#EF4444", background: "#EF444411" }}>
+                      style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)", background: "var(--color-danger)11" }}>
                       Reject
                     </button>
                     <button
                       onClick={() => acceptOrder(order)}
                       disabled={processing.has(order.id)}
                       className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1.5 shrink-0"
-                      style={{ background: GOLD, color: "#1A0A2E" }}>
+                      style={{ background: GOLD, color: "var(--color-surface)" }}>
                       {processing.has(order.id) ? <Spinner size={12} /> : <><Check size={13} /> Accept + Print KOT</>}
                     </button>
                   </div>

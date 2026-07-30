@@ -10,12 +10,15 @@ export const users = new Hono()
     const all = branchId
       ? await db.select().from(schema.users).where(eq(schema.users.branchId, parseInt(branchId)))
       : await db.select().from(schema.users);
-    return c.json({ users: all }, 200);
+    const safe = all.map(({ password, ...rest }) => rest);
+    return c.json({ users: safe }, 200);
   })
   .post("/", async (c) => {
     const body = await c.req.json();
+    if (body.password) body.password = await Bun.password.hash(body.password);
     const [user] = await db.insert(schema.users).values(body).returning();
-    return c.json({ user }, 201);
+    const { password: _pw, ...safe } = user;
+    return c.json({ user: safe }, 201);
   })
   .post("/login", async (c) => {
     const { pin, branchId } = await c.req.json();
@@ -28,8 +31,10 @@ export const users = new Hono()
   .patch("/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
+    if (body.password) body.password = await Bun.password.hash(body.password);
     const [user] = await db.update(schema.users).set(body).where(eq(schema.users.id, id)).returning();
-    return c.json({ user }, 200);
+    const { password: _pw, ...safe } = user;
+    return c.json({ user: safe }, 200);
   })
   .delete("/:id", async (c) => {
     const id = parseInt(c.req.param("id"));

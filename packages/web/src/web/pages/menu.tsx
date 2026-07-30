@@ -8,9 +8,9 @@ import { useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ShoppingCart, Plus, Minus, X, ChevronRight, Check, UtensilsCrossed, Search } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -244,8 +244,8 @@ export default function MenuPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: BG }}>
         <div className="text-center p-8 max-w-sm">
           <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
-            style={{ background: "#22C55E22" }}>
-            <Check size={40} style={{ color: "#22C55E" }} />
+            style={{ background: "var(--color-success)22" }}>
+            <Check size={40} style={{ color: "var(--color-success)" }} />
           </div>
           <div className="text-xl font-bold mb-2" style={{ color: TEXT }}>Order Placed!</div>
           <div className="text-xs mb-1" style={{ color: MUTED }}>Order #{orderNum}</div>
@@ -256,7 +256,7 @@ export default function MenuPage() {
           <button
             onClick={() => { setPlaced(false); setCustomerName(""); setTableNotes(""); }}
             className="px-6 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             Order More
           </button>
         </div>
@@ -278,7 +278,7 @@ export default function MenuPage() {
           {totalItems > 0 && (
             <button onClick={() => setShowCart(true)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold relative"
-              style={{ background: GOLD, color: "#1A0A2E" }}>
+              style={{ background: GOLD, color: "var(--color-surface)" }}>
               <ShoppingCart size={14} />
               <span>{totalItems} item{totalItems > 1 ? "s" : ""}</span>
               <span className="font-bold">• LKR {subtotal.toLocaleString()}</span>
@@ -310,7 +310,7 @@ export default function MenuPage() {
               className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
               style={{
                 background: activeCategory === -1 ? GOLD : SURF,
-                color: activeCategory === -1 ? "#1A0A2E" : MUTED,
+                color: activeCategory === -1 ? "var(--color-surface)" : MUTED,
                 borderColor: activeCategory === -1 ? GOLD : BORD,
               }}>
               All Items
@@ -321,7 +321,7 @@ export default function MenuPage() {
                 className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
                 style={{
                   background: activeCategory === cat.id ? GOLD : SURF,
-                  color: activeCategory === cat.id ? "#1A0A2E" : MUTED,
+                  color: activeCategory === cat.id ? "var(--color-surface)" : MUTED,
                   borderColor: activeCategory === cat.id ? GOLD : BORD,
                 }}>
                 {cat.name}
@@ -365,7 +365,7 @@ export default function MenuPage() {
                     {qty === 0 ? (
                       <button onClick={() => addToCart(item)}
                         className="w-full py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-0.5"
-                        style={{ background: GOLD, color: "#1A0A2E" }}>
+                        style={{ background: GOLD, color: "var(--color-surface)" }}>
                         <Plus size={11} /> Add
                       </button>
                     ) : (
@@ -378,7 +378,7 @@ export default function MenuPage() {
                         <span className="text-xs font-bold" style={{ color: TEXT }}>{qty}</span>
                         <button onClick={() => addToCart(item)}
                           className="w-6 h-6 rounded-md flex items-center justify-center"
-                          style={{ background: GOLD, color: "#1A0A2E" }}>
+                          style={{ background: GOLD, color: "var(--color-surface)" }}>
                           <Plus size={10} />
                         </button>
                       </div>
@@ -397,7 +397,7 @@ export default function MenuPage() {
           <div className="max-w-lg mx-auto">
             <button onClick={() => setShowCart(true)}
               className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl font-semibold shadow-xl"
-              style={{ background: GOLD, color: "#1A0A2E" }}>
+              style={{ background: GOLD, color: "var(--color-surface)" }}>
               <div className="flex items-center gap-2">
                 <ShoppingCart size={18} />
                 <span className="text-sm">{totalItems} item{totalItems > 1 ? "s" : ""}</span>
@@ -436,7 +436,7 @@ export default function MenuPage() {
                     <span className="w-5 text-center text-sm font-bold" style={{ color: TEXT }}>{item.qty}</span>
                     <button onClick={() => addToCart({ id: item.menuItemId, name: item.name, price: item.price, isActive: true })}
                       className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ background: GOLD, color: "#1A0A2E" }}>
+                      style={{ background: GOLD, color: "var(--color-surface)" }}>
                       <Plus size={12} />
                     </button>
                   </div>
@@ -447,7 +447,7 @@ export default function MenuPage() {
                     LKR {(item.price * item.qty).toLocaleString()}
                   </div>
                   <button onClick={() => setCart(c => c.filter(ci => ci.menuItemId !== item.menuItemId))}
-                    className="p-1" style={{ color: "#EF444480" }}>
+                    className="p-1" style={{ color: "var(--color-danger)80" }}>
                     <X size={13} />
                   </button>
                 </div>
@@ -481,7 +481,7 @@ export default function MenuPage() {
                 onClick={() => placeOrder.mutate()}
                 disabled={placeOrder.isPending || cart.length === 0}
                 className="w-full py-3.5 rounded-2xl text-sm font-bold disabled:opacity-60"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {placeOrder.isPending ? "Placing order..." : "Place Order"}
               </button>
             </div>

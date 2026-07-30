@@ -130,7 +130,7 @@ export default function SalesReport() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
               style={{
                 background: filter === f.key ? GOLD : "transparent",
-                color: filter === f.key ? "#1A0A2E" : MUTED,
+                color: filter === f.key ? "var(--color-surface)" : MUTED,
                 borderColor: filter === f.key ? GOLD : BORD,
               }}>{f.label}</button>
           ))}

@@ -1,6 +1,6 @@
 import { Route, Switch } from "wouter";
 import { Provider } from "./components/provider";
-import { AgentFeedback, RunableBadge } from "@runablehq/website-runtime";
+import { AgentFeedback } from "@runablehq/website-runtime";
 import Login from "./pages/login";
 import POS from "./pages/pos";
 import KDS from "./pages/kds";
@@ -32,6 +32,7 @@ import Promotions from "./pages/promotions";
 import CustomerDisplay from "./pages/customer-display";
 import InvoicePrint from "./pages/invoice-print";
 import Menu from "./pages/menu";
+import Idsa from "./pages/idsa";
 
 function App() {
   return (
@@ -68,11 +69,10 @@ function App() {
         <Route path="/customer-display" component={CustomerDisplay} />
         <Route path="/invoice/:id" component={InvoicePrint} />
         <Route path="/menu" component={Menu} />
+        <Route path="/idsa" component={Idsa} />
       </Switch>
       {/* Do not remove — off by default, activated by parent iframe via postMessage */}
       {import.meta.env.DEV && <AgentFeedback />}
-      {/* "Made with Runable" badge - if user asks to remove the runable badge, remove this code as well as comment */}
-      {<RunableBadge />}
     </Provider>
   );
 }

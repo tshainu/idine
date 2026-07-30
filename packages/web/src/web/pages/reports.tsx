@@ -3,9 +3,9 @@ import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -60,8 +60,8 @@ export default function ReportsPage() {
   const totalRevenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const avgOrderValue = orders.length ? totalRevenue / orders.length : 0;
 
-  const STATUS_COLOR: Record<string, string> = { open: "#22C55E", draft: "#F5A623", completed: "#38BDF8", billed: "#A78BFA", cancelled: "#EF4444" };
-  const TYPE_COLOR: Record<string, string> = { "dine-in": "#22C55E", takeaway: "#F5A623", delivery: "#38BDF8" };
+  const STATUS_COLOR: Record<string, string> = { open: "var(--color-success)", draft: "var(--color-gold)", completed: "var(--color-info)", billed: "var(--color-purple-light)", cancelled: "var(--color-danger)" };
+  const TYPE_COLOR: Record<string, string> = { "dine-in": "var(--color-success)", takeaway: "var(--color-gold)", delivery: "var(--color-info)" };
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: BG }}>

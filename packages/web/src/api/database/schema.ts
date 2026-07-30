@@ -15,9 +15,25 @@ export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   branchId: integer("branch_id").references(() => branches.id),
   name: text("name").notNull(),
-  pin: text("pin").notNull(),
+  pin: text("pin"),
+  userId: text("user_id"),       // shared per-business identifier, e.g. "ELE5236"
+  username: text("username"),    // unique login name within the business
+  password: text("password"),    // Bun.password hash
   role: text("role").notNull().default("waiter"), // superadmin | admin | waiter | cashier | kitchen
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Businesses (managed from /idsa — the software owner's super admin panel)
+export const businesses = sqliteTable("businesses", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().unique(),      // e.g. "ELE5236"
+  businessName: text("business_name").notNull(),
+  username: text("username").notNull().default("admin"),
+  password: text("password").notNull(),             // Bun.password hash
+  passwordPlain: text("password_plain").notNull(),   // kept for super admin reference, like other apps in this fleet
+  status: text("status").notNull().default("active"), // active | suspended
+  branchId: integer("branch_id").references(() => branches.id),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

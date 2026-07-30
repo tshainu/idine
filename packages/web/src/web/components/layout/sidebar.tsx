@@ -220,7 +220,7 @@ export function Sidebar() {
         <button
           onClick={() => navigate("/")}
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium"
-          style={{ color: "#EF4444" }}
+          style={{ color: "var(--color-danger)" }}
         >
           <LogOut size={14} />
           Logout

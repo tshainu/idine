@@ -6,9 +6,9 @@ import {
   LayoutGrid, Table, ChevronLeft, ChevronRight, Download,
 } from "lucide-react";
 
-export const GOLD = "#F5A623";
-export const BG   = "#0D0618";
-export const SURF = "#1A0A2E";
+export const GOLD = "var(--color-gold)";
+export const BG   = "var(--color-bg)";
+export const SURF = "var(--color-surface)";
 export const BORD = "#2D1B4E";
 export const MUTED = "#9CA3AF";
 export const DIM  = "#6B7280";
@@ -173,7 +173,7 @@ export function DataTable({
                   className="w-6 h-6 rounded text-xs font-semibold transition-all"
                   style={{
                     background: pg === page ? GOLD : "transparent",
-                    color: pg === page ? "#1A0A2E" : MUTED,
+                    color: pg === page ? "var(--color-surface)" : MUTED,
                   }}>{pg + 1}</button>
               );
             })}
@@ -199,7 +199,7 @@ export function ViewToggle({
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all"
           style={{
             background: view === v ? GOLD : "transparent",
-            color: view === v ? "#1A0A2E" : MUTED,
+            color: view === v ? "var(--color-surface)" : MUTED,
           }}>
           <Icon size={12} />
           {label}

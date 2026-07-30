@@ -5,9 +5,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -119,7 +119,7 @@ export default function CategoriesPage() {
           <div className="font-bold text-base" style={{ color: TEXT }}>Menu Categories</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} />
             Add Category
           </button>
@@ -130,7 +130,7 @@ export default function CategoriesPage() {
           <div className="flex gap-3">
             {[
               { label: "Total", value: categories.length, color: GOLD },
-              { label: "Active", value: categories.filter(c => c.isActive).length, color: "#22C55E" },
+              { label: "Active", value: categories.filter(c => c.isActive).length, color: "var(--color-success)" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -196,7 +196,7 @@ export default function CategoriesPage() {
                       <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>{c.sortOrder}</td>
                       <td className="px-4 py-3">
                         <button onClick={() => toggleActive.mutate({ id: c.id, isActive: !c.isActive })}>
-                          {c.isActive ? <ToggleRight size={20} color="#22C55E" /> : <ToggleLeft size={20} color={DIM} />}
+                          {c.isActive ? <ToggleRight size={20} color="var(--color-success)" /> : <ToggleLeft size={20} color={DIM} />}
                         </button>
                       </td>
                       <td className="px-4 py-3">
@@ -207,7 +207,7 @@ export default function CategoriesPage() {
                           <button onClick={() => {
                             if (itemCount(c.id) > 0) { alert(`Cannot delete — ${itemCount(c.id)} items use this category`); return; }
                             if (confirm(`Delete category "${c.name}"?`)) deleteCat.mutate(c.id);
-                          }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                          }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}>
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -244,7 +244,7 @@ export default function CategoriesPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.name?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Create"}
               </button>
             </div>

@@ -5,9 +5,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Printer, Tag, CheckCircle } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -151,7 +151,7 @@ export default function KitchenPage() {
                           </td>
                           <td className="px-5 py-3">
                             {isSaved ? (
-                              <div className="flex items-center gap-1 text-xs" style={{ color: "#22C55E" }}>
+                              <div className="flex items-center gap-1 text-xs" style={{ color: "var(--color-success)" }}>
                                 <CheckCircle size={13} />
                                 Saved
                               </div>
@@ -160,7 +160,7 @@ export default function KitchenPage() {
                                 onClick={() => handleSave(cat.id)}
                                 disabled={updateItems.isPending}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                                style={{ background: GOLD, color: "#1A0A2E" }}
+                                style={{ background: GOLD, color: "var(--color-surface)" }}
                               >
                                 {updateItems.isPending ? "Saving..." : "Save"}
                               </button>
@@ -176,7 +176,7 @@ export default function KitchenPage() {
           </div>
 
           {/* Info note */}
-          <div className="rounded-xl p-4 border text-xs" style={{ background: "#F5A62311", borderColor: "#F5A62333", color: MUTED }}>
+          <div className="rounded-xl p-4 border text-xs" style={{ background: "var(--color-gold)11", borderColor: "var(--color-gold)33", color: MUTED }}>
             <strong style={{ color: GOLD }}>How it works:</strong> When a KOT is printed, each item is routed to the printer assigned to its category.
             Items with no printer assigned will not print to kitchen. The billing bill printer handles final receipts separately.
           </div>

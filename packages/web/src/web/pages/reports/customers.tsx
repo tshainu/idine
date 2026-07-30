@@ -157,7 +157,7 @@ export default function CustomerAnalytics() {
           {/* Insights banner */}
           {retentionRate > 0 && (
             <div className="rounded-xl px-4 py-3 flex items-center gap-2 text-sm font-medium border"
-              style={{ background: "#38bdf822", borderColor: "#38bdf8", color: "#7dd3fc" }}>
+              style={{ background: "var(--color-info)22", borderColor: "var(--color-info)", color: "#7dd3fc" }}>
               <TrendingUp size={16} />
               {retentionRate.toFixed(0)}% of customers are returning visitors. Top customer spent LKR {Math.round(statsWithSegment[0]?.totalSpend || 0).toLocaleString()}.
             </div>

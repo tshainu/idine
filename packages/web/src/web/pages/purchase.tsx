@@ -5,9 +5,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Search, Package } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -101,7 +101,7 @@ export default function PurchasePage() {
           <div className="font-bold text-base" style={{ color: TEXT }}>Purchases</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} />
             New Purchase
           </button>
@@ -112,8 +112,8 @@ export default function PurchasePage() {
           <div className="flex gap-3 flex-wrap">
             {[
               { label: "Total Records", value: purchases.length, color: GOLD },
-              { label: "This Month", value: `LKR ${totalThisMonth.toLocaleString()}`, color: "#EF4444" },
-              { label: "All Time", value: `LKR ${purchases.reduce((s, p) => s + (Number(p.total) || 0), 0).toLocaleString()}`, color: "#A78BFA" },
+              { label: "This Month", value: `LKR ${totalThisMonth.toLocaleString()}`, color: "var(--color-danger)" },
+              { label: "All Time", value: `LKR ${purchases.reduce((s, p) => s + (Number(p.total) || 0), 0).toLocaleString()}`, color: "var(--color-purple-light)" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -155,14 +155,14 @@ export default function PurchasePage() {
                     <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>{p.itemDescription}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: TEXT }}>{p.qty}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>LKR {Number(p.unitCost).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-xs font-semibold" style={{ color: "#EF4444" }}>LKR {Number(p.total).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-xs font-semibold" style={{ color: "var(--color-danger)" }}>LKR {Number(p.total).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs max-w-[120px] truncate" style={{ color: DIM }}>{p.notes || "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(p)} className="p-1 rounded" style={{ color: GOLD }}>
                           <Pencil size={13} />
                         </button>
-                        <button onClick={() => { if (confirm("Delete this purchase record?")) deletePurchase.mutate(p.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                        <button onClick={() => { if (confirm("Delete this purchase record?")) deletePurchase.mutate(p.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}>
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -217,7 +217,7 @@ export default function PurchasePage() {
               </div>
               <div className="rounded-xl px-4 py-2.5 flex items-center justify-between" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
                 <span className="text-xs" style={{ color: MUTED }}>Total Amount</span>
-                <span className="text-sm font-bold" style={{ color: "#EF4444" }}>LKR {computedTotal.toLocaleString()}</span>
+                <span className="text-sm font-bold" style={{ color: "var(--color-danger)" }}>LKR {computedTotal.toLocaleString()}</span>
               </div>
               <div>
                 <label className="text-xs mb-1 block" style={{ color: MUTED }}>Notes (optional)</label>
@@ -230,7 +230,7 @@ export default function PurchasePage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.supplierName?.trim() || !form.itemDescription?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Save Purchase"}
               </button>
             </div>

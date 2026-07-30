@@ -9,7 +9,7 @@ type Period = "week" | "month" | "all";
 type View = "summary" | "table";
 
 const ROLE_COLOR: Record<string, string> = {
-  waiter: "#38BDF8", cashier: "#A78BFA", admin: GOLD, manager: "#22C55E",
+  waiter: "var(--color-info)", cashier: "var(--color-purple-light)", admin: GOLD, manager: "var(--color-success)",
 };
 
 const TABLE_COLS: ColDef[] = [
@@ -99,7 +99,7 @@ export default function StaffReport() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
               style={{
                 background: period === p.key ? GOLD : "transparent",
-                color: period === p.key ? "#1A0A2E" : MUTED,
+                color: period === p.key ? "var(--color-surface)" : MUTED,
                 borderColor: period === p.key ? GOLD : BORD,
               }}>{p.label}</button>
           ))}
@@ -136,7 +136,7 @@ export default function StaffReport() {
             <div className="rounded-2xl p-4 border flex items-center gap-4"
               style={{ background: GOLD + "11", borderColor: GOLD + "44" }}>
               <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {topStaff.name[0]}
               </div>
               <div>
@@ -165,8 +165,8 @@ export default function StaffReport() {
                         <div className="w-24 text-xs font-medium truncate" style={{ color: TEXT }}>{s.name}</div>
                         <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ background: BORD }}>
                           <div className="h-full rounded-full flex items-center pl-2"
-                            style={{ width: `${Math.max((s.sales / maxSales) * 100, 4)}%`, background: i === 0 ? GOLD : "#38BDF8" }}>
-                            <span className="text-[10px] font-bold" style={{ color: "#1A0A2E" }}>{s.orders} orders</span>
+                            style={{ width: `${Math.max((s.sales / maxSales) * 100, 4)}%`, background: i === 0 ? GOLD : "var(--color-info)" }}>
+                            <span className="text-[10px] font-bold" style={{ color: "var(--color-surface)" }}>{s.orders} orders</span>
                           </div>
                         </div>
                         <div className="w-32 text-xs text-right font-bold" style={{ color: TEXT }}>

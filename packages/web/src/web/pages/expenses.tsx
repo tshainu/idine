@@ -4,9 +4,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Search, Receipt } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -20,9 +20,9 @@ const EXPENSE_CATEGORIES = [
 const today = () => new Date().toISOString().split("T")[0];
 
 const CAT_COLORS: Record<string, string> = {
-  Rent: "#EF4444", Utilities: "#F97316", Salaries: "#A78BFA",
-  Supplies: "#38BDF8", Maintenance: "#FBBF24", Marketing: "#34D399",
-  Equipment: "#F472B6", "Food & Beverage": "#22C55E", Transport: "#60A5FA",
+  Rent: "var(--color-danger)", Utilities: "#F97316", Salaries: "var(--color-purple-light)",
+  Supplies: "var(--color-info)", Maintenance: "#FBBF24", Marketing: "#34D399",
+  Equipment: "var(--color-pink)", "Food & Beverage": "var(--color-success)", Transport: "#60A5FA",
   General: GOLD, Other: DIM,
 };
 
@@ -116,7 +116,7 @@ export default function ExpensesPage() {
           <div className="font-bold text-base" style={{ color: TEXT }}>Expenses</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} />
             Add Expense
           </button>
@@ -127,8 +127,8 @@ export default function ExpensesPage() {
           <div className="flex gap-3 flex-wrap">
             {[
               { label: "Total Records", value: expenses.length, color: GOLD },
-              { label: "This Month", value: `LKR ${totalThisMonth.toLocaleString()}`, color: "#EF4444" },
-              { label: "All Time", value: `LKR ${expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0).toLocaleString()}`, color: "#A78BFA" },
+              { label: "This Month", value: `LKR ${totalThisMonth.toLocaleString()}`, color: "var(--color-danger)" },
+              { label: "All Time", value: `LKR ${expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0).toLocaleString()}`, color: "var(--color-purple-light)" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -197,14 +197,14 @@ export default function ExpensesPage() {
                         {e.category}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs font-bold" style={{ color: "#EF4444" }}>LKR {Number(e.amount).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-xs font-bold" style={{ color: "var(--color-danger)" }}>LKR {Number(e.amount).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs max-w-[200px] truncate" style={{ color: DIM }}>{e.notes || "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(e)} className="p-1 rounded" style={{ color: GOLD }}>
                           <Pencil size={13} />
                         </button>
-                        <button onClick={() => { if (confirm("Delete this expense?")) deleteExpense.mutate(e.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                        <button onClick={() => { if (confirm("Delete this expense?")) deleteExpense.mutate(e.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}>
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -256,7 +256,7 @@ export default function ExpensesPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.amount || Number(form.amount) <= 0}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Save"}
               </button>
             </div>

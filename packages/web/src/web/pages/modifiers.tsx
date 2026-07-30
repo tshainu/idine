@@ -5,10 +5,10 @@ import { Sidebar } from "../components/layout/sidebar";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
-const GOLD = "#F5A623";
+const GOLD = "var(--color-gold)";
 const TEXT = "#F3F4F6";
 const MUTED = "#9CA3AF";
 
@@ -83,7 +83,7 @@ export default function ModifiersPage() {
             <span className="font-bold text-base" style={{ color: TEXT }}>Modifiers</span>
             <span className="text-xs px-2 py-0.5 rounded-full ml-1" style={{ background: "rgba(245,166,35,0.15)", color: GOLD }}>{items.length}</span>
           </div>
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={15} /> Add Modifier
           </button>
         </div>
@@ -94,7 +94,7 @@ export default function ModifiersPage() {
             {[
               { label: "Total Modifiers", value: items.length, color: GOLD },
               { label: "Groups", value: groups.length - 1, color: "#60A5FA" },
-              { label: "Paid Add-ons", value: items.filter((i: any) => i.price > 0).length, color: "#22C55E" },
+              { label: "Paid Add-ons", value: items.filter((i: any) => i.price > 0).length, color: "var(--color-success)" },
             ].map(s => (
               <div key={s.label} className="rounded-xl p-4 border" style={{ background: SURF, borderColor: BORD }}>
                 <div className="text-xs mb-1" style={{ color: MUTED }}>{s.label}</div>
@@ -112,7 +112,7 @@ export default function ModifiersPage() {
             <div className="flex gap-2 flex-wrap">
               {groups.map(g => (
                 <button key={g} onClick={() => setFilterGroup(g)} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{ background: filterGroup === g ? GOLD : SURF, color: filterGroup === g ? "#1A0A2E" : MUTED, border: `1px solid ${filterGroup === g ? GOLD : BORD}` }}>
+                  style={{ background: filterGroup === g ? GOLD : SURF, color: filterGroup === g ? "var(--color-surface)" : MUTED, border: `1px solid ${filterGroup === g ? GOLD : BORD}` }}>
                   {g === "all" ? "All Groups" : g}
                 </button>
               ))}
@@ -153,7 +153,7 @@ export default function ModifiersPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <button onClick={() => openEdit(m)} className="p-1 rounded" style={{ color: GOLD }}><Pencil size={14} /></button>
-                            <button onClick={() => { if (confirm(`Delete "${m.name}"?`)) deleteMod.mutate(m.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}><Trash2 size={14} /></button>
+                            <button onClick={() => { if (confirm(`Delete "${m.name}"?`)) deleteMod.mutate(m.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}><Trash2 size={14} /></button>
                           </div>
                         </td>
                       </tr>
@@ -190,7 +190,7 @@ export default function ModifiersPage() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={closeModal} className="flex-1 py-2 rounded-lg text-sm border" style={{ borderColor: BORD, color: MUTED }}>Cancel</button>
-              <button onClick={handleSubmit} disabled={createMod.isPending || updateMod.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>
+              <button onClick={handleSubmit} disabled={createMod.isPending || updateMod.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {createMod.isPending || updateMod.isPending ? "Saving..." : modal === "create" ? "Add" : "Save"}
               </button>
             </div>

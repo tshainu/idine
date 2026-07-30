@@ -127,7 +127,7 @@ export default function PLReport() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
               style={{
                 background: period === p.key ? GOLD : "transparent",
-                color: period === p.key ? "#1A0A2E" : MUTED,
+                color: period === p.key ? "var(--color-surface)" : MUTED,
                 borderColor: period === p.key ? GOLD : BORD,
               }}>{p.label}</button>
           ))}

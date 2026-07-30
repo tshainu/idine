@@ -6,14 +6,14 @@ import { Sidebar } from "../components/layout/sidebar";
 import { Save, CheckCircle, HelpCircle, ChevronRight, ImageIcon, Upload, X } from "lucide-react";
 import { useLocation } from "wouter";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
 const TEXT = "#F3F4F6";
-const PURPLE = "#7C3AED";
+const PURPLE = "var(--color-purple)";
 
 function Label({ children, required, help }: { children: React.ReactNode; required?: boolean; help?: string }) {
   return (
@@ -201,7 +201,7 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
                 {logoUploading ? "Uploading…" : "Upload Logo"}
               </button>
               {logoPreview && (
-                <span className="text-xs" style={{ color: "#22C55E" }}>✓ Uploaded</span>
+                <span className="text-xs" style={{ color: "var(--color-success)" }}>✓ Uploaded</span>
               )}
             </div>
           </Field>
@@ -233,7 +233,7 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
                 <span className="text-[11px]" style={{ color: DIM }}>Recommended: 576×120px, PNG/JPG</span>
               </div>
               {headerPreview && (
-                <span className="text-xs" style={{ color: "#22C55E" }}>✓ Uploaded</span>
+                <span className="text-xs" style={{ color: "var(--color-success)" }}>✓ Uploaded</span>
               )}
             </div>
           </Field>
@@ -267,7 +267,7 @@ function OutletSetting({ onBack }: { onBack: () => void }) {
               onClick={handleSubmit}
               disabled={updateBranch.isPending || saveSettings.isPending}
               className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
-              style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}
+              style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}
             >
               {saved ? "Saved!" : (updateBranch.isPending || saveSettings.isPending) ? "Saving…" : "Submit"}
             </button>
@@ -341,7 +341,7 @@ function PaymentMethods({ onBack }: { onBack: () => void }) {
                   style={{ background: m.active ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: m.active ? "#4ADE80" : "#F87171" }}>
                   {m.active ? "Active" : "Disabled"}
                 </button>
-                <button onClick={() => removeMethod(idx)} className="text-xs" style={{ color: "#EF4444" }}>✕</button>
+                <button onClick={() => removeMethod(idx)} className="text-xs" style={{ color: "var(--color-danger)" }}>✕</button>
               </div>
             </div>
           ))}
@@ -354,7 +354,7 @@ function PaymentMethods({ onBack }: { onBack: () => void }) {
               className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
               style={{ background: BG, borderColor: BORD, color: TEXT }}
             />
-            <button onClick={addMethod} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>Add</button>
+            <button onClick={addMethod} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "var(--color-surface)" }}>Add</button>
           </div>
           <div className="flex gap-3 pt-2">
             <button onClick={handleSave} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE, color: "#fff" }}>{saved ? "Saved!" : "Save"}</button>
@@ -508,7 +508,7 @@ function PrinterSetup({ onBack }: { onBack: () => void }) {
               </Select>
             </Field>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
+              <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
               <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
             </div>
           </div>
@@ -605,7 +605,7 @@ function PrinterSetup({ onBack }: { onBack: () => void }) {
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: PURPLE + "33", color: PURPLE }}>Edit</button>
                         <button onClick={() => { if (confirm(`Delete printer "${p.name}"?`)) deletePrinter.mutate(p.id); }}
                           disabled={deletePrinter.isPending}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50" style={{ background: "#ef444422", color: "#ef4444" }}>Delete</button>
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50" style={{ background: "var(--color-danger)22", color: "var(--color-danger)" }}>Delete</button>
                       </div>
                     </div>
                     {(() => {
@@ -712,7 +712,7 @@ function PrinterSetup({ onBack }: { onBack: () => void }) {
             <div className="flex gap-3 pt-2 border-t" style={{ borderColor: BORD }}>
               <button onClick={() => save.mutate()} disabled={save.isPending}
                 className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
-                style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>
+                style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}>
                 {saved ? "Saved!" : save.isPending ? "Saving…" : "Save Categories"}
               </button>
               <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
@@ -782,7 +782,7 @@ function DeliveryPartners({ onBack }: { onBack: () => void }) {
                     style={{ background: p.active ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: p.active ? "#4ADE80" : "#F87171" }}>
                     {p.active ? "Active" : "Disabled"}
                   </button>
-                  <button onClick={() => remove(idx)} className="text-xs" style={{ color: "#EF4444" }}>✕</button>
+                  <button onClick={() => remove(idx)} className="text-xs" style={{ color: "var(--color-danger)" }}>✕</button>
                 </div>
               </div>
               <div>
@@ -805,10 +805,10 @@ function DeliveryPartners({ onBack }: { onBack: () => void }) {
                 placeholder="API key (optional)" className="px-3 py-2 rounded-lg border text-sm outline-none"
                 style={{ background: SURF, borderColor: BORD, color: TEXT }} />
             </div>
-            <button onClick={addPartner} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "#1A0A2E" }}>Add Partner</button>
+            <button onClick={addPartner} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: GOLD, color: "var(--color-surface)" }}>Add Partner</button>
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
             <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
           </div>
         </div>
@@ -861,7 +861,7 @@ function LoyaltyWallet({ onBack }: { onBack: () => void }) {
             <Input type="number" step="0.1" value={form.pointRate} onChange={set("pointRate")} />
           </Field>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving…" : "Save"}</button>
             <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
           </div>
         </div>
@@ -1007,7 +1007,7 @@ export default function SettingsPage() {
           <button
             onClick={handleSave}
             className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: saved ? "#22C55E" : PURPLE, color: "#fff" }}
+            style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}
           >
             {saved ? <CheckCircle size={13} /> : <Save size={13} />}
             {saved ? "Saved!" : "Save Changes"}

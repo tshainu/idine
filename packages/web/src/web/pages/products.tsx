@@ -8,7 +8,7 @@ import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, X,
 function MarginBadge({ salePrice, costPrice }: { salePrice: number; costPrice: number }) {
   if (!costPrice || costPrice <= 0) return <span style={{ color: "#6B7280", fontSize: 11 }}>—</span>;
   const margin = ((salePrice - costPrice) / salePrice) * 100;
-  const color = margin >= 60 ? "#22C55E" : margin >= 40 ? "#F5A623" : margin >= 20 ? "#F97316" : "#EF4444";
+  const color = margin >= 60 ? "var(--color-success)" : margin >= 40 ? "var(--color-gold)" : margin >= 20 ? "#F97316" : "var(--color-danger)";
   return (
     <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
       style={{ background: `${color}22`, color, border: `1px solid ${color}44` }}>
@@ -23,7 +23,7 @@ function MarginWidget({ salePrice, marginPct }: { salePrice: number; marginPct: 
   const margin = Math.min(Math.max(Number(marginPct) || 0, 0), 100);
   const profit = sale * (margin / 100);
   const cost = sale - profit;
-  const color = margin >= 60 ? "#22C55E" : margin >= 40 ? "#F5A623" : margin >= 20 ? "#F97316" : "#EF4444";
+  const color = margin >= 60 ? "var(--color-success)" : margin >= 40 ? "var(--color-gold)" : margin >= 20 ? "#F97316" : "var(--color-danger)";
   const barW = margin;
   return (
     <div className="rounded-xl border p-3 space-y-2" style={{ background: "rgba(255,255,255,0.03)", borderColor: "#2D1B4E" }}>
@@ -39,7 +39,7 @@ function MarginWidget({ salePrice, marginPct }: { salePrice: number; marginPct: 
             <div className="h-1.5 rounded-full transition-all" style={{ width: `${barW}%`, background: color }} />
           </div>
           <div className="flex justify-between text-xs" style={{ color: "#6B7280" }}>
-            <span>Cost: <span style={{ color: "#EF4444", fontWeight: 600 }}>LKR {cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
+            <span>Cost: <span style={{ color: "var(--color-danger)", fontWeight: 600 }}>LKR {cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
             <span>Profit: <span style={{ color, fontWeight: 600 }}>LKR {profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
           </div>
         </>
@@ -48,14 +48,14 @@ function MarginWidget({ salePrice, marginPct }: { salePrice: number; marginPct: 
   );
 }
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
 const TEXT = "#F3F4F6";
-const PURPLE = "#7C3AED";
+const PURPLE = "var(--color-purple)";
 
 const inputCls = "w-full px-3 py-2 text-sm rounded-lg border outline-none";
 const inputStyle = (extra?: React.CSSProperties) =>
@@ -217,6 +217,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [localVariations, setLocalVariations] = useState<any[]>([]); // for new unsaved items
   const [showVarModal, setShowVarModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [imgUploading, setImgUploading] = useState(false);
   const imgInputRef = useRef<HTMLInputElement>(null);
 
@@ -394,11 +395,18 @@ export default function ProductsPage() {
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-6 border-b shrink-0" style={{ background: SURF, borderColor: BORD }}>
           <div className="font-bold text-base" style={{ color: TEXT }}>Menu Items</div>
-          <button onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
-            <Plus size={13} />Add Item
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border"
+              style={{ background: "transparent", borderColor: BORD, color: TEXT }}>
+              <Upload size={13} />Upload Item
+            </button>
+            <button onClick={() => { resetForm(); setShowForm(true); }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: GOLD, color: "var(--color-surface)" }}>
+              <Plus size={13} />Add Item
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -422,11 +430,11 @@ export default function ProductsPage() {
           <div className="flex gap-3 flex-wrap">
             {[
               { label: "Total Items", value: items.length, color: GOLD },
-              { label: "Active", value: items.filter(m => m.isActive).length, color: "#22C55E" },
-              { label: "Inactive", value: items.filter(m => !m.isActive).length, color: "#EF4444" },
+              { label: "Active", value: items.filter(m => m.isActive).length, color: "var(--color-success)" },
+              { label: "Inactive", value: items.filter(m => !m.isActive).length, color: "var(--color-danger)" },
               { label: "Veg", value: items.filter(m => m.isVeg).length, color: "#4ADE80" },
-              { label: "Beverage", value: items.filter(m => m.isBeverage).length, color: "#38BDF8" },
-              { label: "Promo", value: items.filter(m => m.isPromo).length, color: "#A78BFA" },
+              { label: "Beverage", value: items.filter(m => m.isBeverage).length, color: "var(--color-info)" },
+              { label: "Promo", value: items.filter(m => m.isPromo).length, color: "var(--color-purple-light)" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -486,19 +494,19 @@ export default function ProductsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {m.isVeg && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(74,222,128,0.15)", color: "#4ADE80" }}>Veg</span>}
-                        {m.isBeverage && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(56,189,248,0.15)", color: "#38BDF8" }}>Bev</span>}
-                        {m.isPromo && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.15)", color: "#A78BFA" }}>Promo</span>}
+                        {m.isBeverage && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(56,189,248,0.15)", color: "var(--color-info)" }}>Bev</span>}
+                        {m.isPromo && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.15)", color: "var(--color-purple-light)" }}>Promo</span>}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={() => toggleActive.mutate({ id: m.id, isActive: !m.isActive })}>
-                        {m.isActive ? <ToggleRight size={20} color="#22C55E" /> : <ToggleLeft size={20} color={DIM} />}
+                        {m.isActive ? <ToggleRight size={20} color="var(--color-success)" /> : <ToggleLeft size={20} color={DIM} />}
                       </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button onClick={() => openEdit(m)} className="p-1 rounded" style={{ color: GOLD }}><Pencil size={13} /></button>
-                        <button onClick={() => { if (confirm("Delete?")) deleteItem.mutate(m.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}><Trash2 size={13} /></button>
+                        <button onClick={() => { if (confirm("Delete?")) deleteItem.mutate(m.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -627,7 +635,7 @@ export default function ProductsPage() {
                   <FLabel>Beverage</FLabel>
                   <button type="button" onClick={() => setForm(p => ({ ...p, isBeverage: !p.isBeverage }))}
                     className="w-full px-3 py-2 rounded-lg text-sm border font-medium"
-                    style={{ borderColor: form.isBeverage ? "#38BDF8" : BORD, color: form.isBeverage ? "#38BDF8" : DIM, background: form.isBeverage ? "rgba(56,189,248,0.1)" : BG }}>
+                    style={{ borderColor: form.isBeverage ? "var(--color-info)" : BORD, color: form.isBeverage ? "var(--color-info)" : DIM, background: form.isBeverage ? "rgba(56,189,248,0.1)" : BG }}>
                     <Coffee size={12} className="inline mr-1" />{form.isBeverage ? "Yes" : "No"}
                   </button>
                 </div>
@@ -687,7 +695,7 @@ export default function ProductsPage() {
                                     if (confirm("Delete variation?")) deleteVariation.mutate(v.id);
                                   }
                                 }}
-                                style={{ color: "#EF4444" }}
+                                style={{ color: "var(--color-danger)" }}
                               >
                                 <X size={12} />
                               </button>
@@ -730,6 +738,230 @@ export default function ProductsPage() {
           }}
         />
       )}
+
+      {/* ── Upload Item Modal ───────────────────────────────────────────────── */}
+      {showUploadModal && (
+        <UploadItemModal
+          branchId={branchId}
+          categories={categories}
+          onClose={() => setShowUploadModal(false)}
+          onImported={() => { qc.invalidateQueries({ queryKey: ["products-menu", branchId] }); setShowUploadModal(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  UPLOAD ITEM MODAL — Excel template/import + menu card image extraction
+// ════════════════════════════════════════════════════════════════════════════
+const DEFAULT_MARGIN_PCT = 30;
+
+function UploadItemModal({ branchId, categories, onClose, onImported }: {
+  branchId: number; categories: any[]; onClose: () => void; onImported: () => void;
+}) {
+  const [tab, setTab] = useState<"excel" | "image">("excel");
+  const [parsedItems, setParsedItems] = useState<{ name: string; price: number; costPrice: number; categoryId?: number }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  async function downloadTemplate() {
+    const XLSX = await import("xlsx");
+    const rows = [
+      { name: "Chicken Curry", category: categories[0]?.name || "Main Course", priceDineIn: 950, priceTakeaway: 900, priceDelivery: 1000, costPrice: 665 },
+      { name: "Fried Rice", category: categories[0]?.name || "Rice & Noodles", priceDineIn: 650, priceTakeaway: 600, priceDelivery: 700, costPrice: 455 },
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Items");
+    XLSX.writeFile(wb, "idine-item-upload-template.xlsx");
+  }
+
+  async function handleExcelFile(file: File) {
+    setBusy(true); setError("");
+    try {
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+      const items = rows.map(r => {
+        const price = Number(r.priceDineIn ?? r.price ?? 0);
+        const cost = r.costPrice != null && r.costPrice !== "" ? Number(r.costPrice) : price * (1 - DEFAULT_MARGIN_PCT / 100);
+        const cat = categories.find((c: any) => c.name?.toLowerCase() === String(r.category || "").toLowerCase());
+        return { name: String(r.name || "").trim(), price, costPrice: cost, categoryId: cat?.id };
+      }).filter(r => r.name && r.price > 0);
+      if (items.length === 0) setError("No valid rows found. Make sure the file matches the template columns.");
+      setParsedItems(items);
+    } catch (e: any) {
+      setError("Could not read this file. Please use the downloaded template.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleImageFile(file: File) {
+    setBusy(true); setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/menu-extract", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setError((data as any)?.error || "Extraction failed"); return; }
+      const items = ((data as any).items || []).map((i: any) => ({
+        name: i.name,
+        price: Number(i.price),
+        costPrice: Number(i.price) * (1 - DEFAULT_MARGIN_PCT / 100),
+      }));
+      if (items.length === 0) setError("No items detected in this image.");
+      setParsedItems(items);
+    } catch {
+      setError("Extraction failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function updateParsed(idx: number, field: "price" | "costPrice", value: number) {
+    setParsedItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
+  }
+
+  async function importAll() {
+    setImporting(true);
+    try {
+      for (const item of parsedItems) {
+        await api["menu-items"].$post({
+          json: {
+            branchId,
+            name: item.name,
+            price: item.price,
+            priceDineIn: item.price,
+            priceTakeaway: item.price,
+            priceDelivery: item.price,
+            costPrice: item.costPrice,
+            categoryId: item.categoryId,
+            isActive: true,
+          } as any,
+        });
+      }
+      onImported();
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
+      <div className="rounded-2xl border shadow-2xl flex flex-col" style={{ background: SURF, borderColor: BORD, width: "min(760px, 94vw)", maxHeight: "90vh" }}>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: BORD }}>
+          <span className="font-bold text-sm" style={{ color: TEXT }}>Upload Item</span>
+          <button onClick={onClose} style={{ color: MUTED }}><X size={16} /></button>
+        </div>
+
+        <div className="flex border-b" style={{ borderColor: BORD }}>
+          {[{ id: "excel" as const, label: "Excel Upload" }, { id: "image" as const, label: "Menu Card Image" }].map(t => (
+            <button key={t.id} onClick={() => { setTab(t.id); setParsedItems([]); setError(""); }}
+              className="px-5 py-2.5 text-xs font-semibold"
+              style={{ color: tab === t.id ? GOLD : DIM, borderBottom: tab === t.id ? `2px solid ${GOLD}` : "2px solid transparent" }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {tab === "excel" ? (
+            <>
+              <div className="rounded-lg border p-4 flex items-center justify-between" style={{ borderColor: BORD, background: BG }}>
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: TEXT }}>1. Download the template</div>
+                  <div className="text-xs mt-0.5" style={{ color: DIM }}>Fill in name, category, prices and (optionally) cost — then upload it back below.</div>
+                </div>
+                <button onClick={downloadTemplate}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
+                  style={{ background: BORD, color: TEXT }}>
+                  Download .xlsx
+                </button>
+              </div>
+              <div className="rounded-lg border p-4" style={{ borderColor: BORD, background: BG }}>
+                <div className="text-sm font-semibold mb-2" style={{ color: TEXT }}>2. Upload the filled file</div>
+                <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                  onChange={e => e.target.files?.[0] && handleExcelFile(e.target.files[0])} />
+                <button onClick={() => excelInputRef.current?.click()} disabled={busy}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: GOLD, color: "var(--color-surface)" }}>
+                  {busy ? "Reading…" : "Choose Excel File"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border p-4" style={{ borderColor: BORD, background: BG }}>
+              <div className="text-sm font-semibold mb-1" style={{ color: TEXT }}>Upload a photo of your menu card</div>
+              <div className="text-xs mb-3" style={{ color: DIM }}>
+                We'll extract item names and prices automatically. Default profit margin is set to {DEFAULT_MARGIN_PCT}% — you can edit each item's cost below before importing.
+              </div>
+              <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
+                onChange={e => e.target.files?.[0] && handleImageFile(e.target.files[0])} />
+              <button onClick={() => imageInputRef.current?.click()} disabled={busy}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
+                {busy ? "Analyzing…" : "Choose Menu Image"}
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-xs px-3 py-2 rounded-lg" style={{ background: "var(--color-danger)22", color: "var(--color-danger)" }}>{error}</div>
+          )}
+
+          {parsedItems.length > 0 && (
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: BORD }}>
+              <div className="px-3 py-2 text-xs font-semibold border-b" style={{ borderColor: BORD, background: BG, color: TEXT }}>
+                Preview — {parsedItems.length} item{parsedItems.length !== 1 ? "s" : ""} found
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ background: BG }}>
+                    <th className="text-left px-3 py-2" style={{ color: DIM }}>Name</th>
+                    <th className="text-right px-3 py-2" style={{ color: DIM }}>Price</th>
+                    <th className="text-right px-3 py-2" style={{ color: DIM }}>Cost (edit)</th>
+                    <th className="text-right px-3 py-2" style={{ color: DIM }}>Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsedItems.map((it, i) => (
+                    <tr key={i} className="border-t" style={{ borderColor: BORD }}>
+                      <td className="px-3 py-1.5" style={{ color: TEXT }}>{it.name}</td>
+                      <td className="px-3 py-1.5 text-right">
+                        <input type="number" value={it.price} onChange={e => updateParsed(i, "price", Number(e.target.value))}
+                          className="w-20 text-right rounded px-1.5 py-0.5 border outline-none" style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <input type="number" value={it.costPrice.toFixed(2)} onChange={e => updateParsed(i, "costPrice", Number(e.target.value))}
+                          className="w-20 text-right rounded px-1.5 py-0.5 border outline-none" style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-semibold" style={{ color: "var(--color-success)" }}>
+                        {it.price > 0 ? `${(((it.price - it.costPrice) / it.price) * 100).toFixed(0)}%` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 px-5 py-3.5 border-t" style={{ borderColor: BORD }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
+          <button onClick={importAll} disabled={parsedItems.length === 0 || importing}
+            className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-40"
+            style={{ background: "var(--color-success)", color: "#fff" }}>
+            {importing ? "Importing…" : `Import ${parsedItems.length || ""} Item${parsedItems.length !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

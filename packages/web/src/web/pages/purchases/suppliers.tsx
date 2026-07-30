@@ -4,7 +4,7 @@ import { getBranchId } from "../../lib/store";
 import { Sidebar } from "../../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Search, Building2, Phone, Mail, MapPin, X } from "lucide-react";
 
-const GOLD = "#F5A623";
+const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
 const BORD = "var(--color-border)";
@@ -87,7 +87,7 @@ export default function SuppliersPage() {
           <div className="font-bold text-sm" style={{ color: TEXT }}>Suppliers</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} /> New Supplier
           </button>
         </div>
@@ -96,7 +96,7 @@ export default function SuppliersPage() {
           <div className="flex items-center gap-3">
             {[
               { label: "Total Suppliers", value: suppliers.length, color: GOLD },
-              { label: "Total Purchased", value: `LKR ${purchases.reduce((s, p) => s + Number(p.total), 0).toLocaleString()}`, color: "#a78bfa" },
+              { label: "Total Purchased", value: `LKR ${purchases.reduce((s, p) => s + Number(p.total), 0).toLocaleString()}`, color: "var(--color-purple-light)" },
               { label: "Total Due", value: `LKR ${purchases.reduce((s, p) => s + Number(p.dueAmount || 0), 0).toLocaleString()}`, color: "#f87171" },
             ].map(s => (
               <div key={s.label} className="rounded-xl px-4 py-2.5 border" style={{ background: SURF, borderColor: BORD }}>
@@ -138,7 +138,7 @@ export default function SuppliersPage() {
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg" style={{ color: GOLD, background: GOLD + "15" }}><Pencil size={12} /></button>
-                        <button onClick={() => { if (confirm("Remove this supplier?")) remove.mutate(s.id); }} className="p-1.5 rounded-lg" style={{ color: "#EF4444", background: "#EF444415" }}><Trash2 size={12} /></button>
+                        <button onClick={() => { if (confirm("Remove this supplier?")) remove.mutate(s.id); }} className="p-1.5 rounded-lg" style={{ color: "var(--color-danger)", background: "var(--color-danger)15" }}><Trash2 size={12} /></button>
                       </div>
                     </div>
 
@@ -237,7 +237,7 @@ export default function SuppliersPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.name?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Add Supplier"}
               </button>
             </div>

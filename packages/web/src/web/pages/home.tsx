@@ -5,9 +5,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Utensils, Package, Coffee, ShoppingCart } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -119,8 +119,8 @@ export default function HomePage() {
   const recent = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
 
   const statusColor: Record<string, string> = {
-    open: "#22C55E", draft: "#F5A623", completed: "#38BDF8", billed: "#A78BFA",
-    cancelled: "#EF4444", confirmed: "#F97316",
+    open: "var(--color-success)", draft: "var(--color-gold)", completed: "var(--color-info)", billed: "var(--color-purple-light)",
+    cancelled: "var(--color-danger)", confirmed: "#F97316",
   };
 
   return (
@@ -142,7 +142,7 @@ export default function HomePage() {
             <button
               onClick={() => navigate("/pos")}
               className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: GOLD, color: "#1A0A2E" }}
+              style={{ background: GOLD, color: "var(--color-surface)" }}
             >
               <ShoppingCart size={13} />
               POS
@@ -221,9 +221,9 @@ export default function HomePage() {
               <div className="font-semibold text-sm mb-4" style={{ color: TEXT }}>Order Types Today</div>
               <div className="space-y-4">
                 {[
-                  { label: "Dine In", count: dineInToday, color: "#22C55E", icon: Utensils },
+                  { label: "Dine In", count: dineInToday, color: "var(--color-success)", icon: Utensils },
                   { label: "Takeaway", count: takeawayToday, color: GOLD, icon: Package },
-                  { label: "Delivery", count: deliveryToday, color: "#38BDF8", icon: Coffee },
+                  { label: "Delivery", count: deliveryToday, color: "var(--color-info)", icon: Coffee },
                 ].map(t => (
                   <div key={t.label} className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -256,7 +256,7 @@ export default function HomePage() {
                   {topItems.map((item, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{ background: i === 0 ? GOLD : BORD, color: i === 0 ? "#1A0A2E" : MUTED }}>
+                        style={{ background: i === 0 ? GOLD : BORD, color: i === 0 ? "var(--color-surface)" : MUTED }}>
                         {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -307,11 +307,11 @@ export default function HomePage() {
                 <div className="text-xs" style={{ color: MUTED }}>Total Items</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold" style={{ color: "#22C55E" }}>{menuItems.filter((m: any) => m.available !== false && m.isActive !== false).length}</div>
+                <div className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>{menuItems.filter((m: any) => m.available !== false && m.isActive !== false).length}</div>
                 <div className="text-xs" style={{ color: MUTED }}>Available</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold" style={{ color: "#EF4444" }}>{menuItems.filter((m: any) => m.available === false || m.isActive === false).length}</div>
+                <div className="text-2xl font-bold" style={{ color: "var(--color-danger)" }}>{menuItems.filter((m: any) => m.available === false || m.isActive === false).length}</div>
                 <div className="text-xs" style={{ color: MUTED }}>Unavailable</div>
               </div>
             </div>

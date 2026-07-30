@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronRight, X, Check, Clock, AlertCircle
 } from "lucide-react";
 
-const GOLD = "#F5A623";
+const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
 const BORD = "var(--color-border)";
@@ -154,7 +154,7 @@ export default function PurchasesListPage() {
           <div className="font-bold text-sm" style={{ color: TEXT }}>Purchases</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} /> New Purchase
           </button>
         </div>
@@ -166,7 +166,7 @@ export default function PurchasesListPage() {
               { label: "Total Amount", value: `LKR ${Math.round(totalAll).toLocaleString()}`, color: GOLD },
               { label: "Total Paid", value: `LKR ${Math.round(totalPaid).toLocaleString()}`, color: "#4ade80" },
               { label: "Total Due", value: `LKR ${Math.round(totalDue).toLocaleString()}`, color: "#f87171" },
-              { label: "Records", value: purchases.length, color: "#a78bfa" },
+              { label: "Records", value: purchases.length, color: "var(--color-purple-light)" },
             ].map(s => (
               <div key={s.label} className="rounded-xl px-4 py-3 border" style={{ background: SURF, borderColor: BORD }}>
                 <div className="text-lg font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -189,7 +189,7 @@ export default function PurchasesListPage() {
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
                   style={{
                     background: filterStatus === k ? GOLD : "transparent",
-                    color: filterStatus === k ? "#1A0A2E" : MUTED,
+                    color: filterStatus === k ? "var(--color-surface)" : MUTED,
                     borderColor: filterStatus === k ? GOLD : BORD,
                   }}>{l}</button>
               ))}
@@ -243,7 +243,7 @@ export default function PurchasesListPage() {
                         <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-1.5">
                             <button onClick={() => openEdit(p)} className="p-1 rounded" style={{ color: GOLD }} title="Edit"><Pencil size={12} /></button>
-                            <button onClick={() => { if (confirm("Delete this purchase?")) deletePurchase.mutate(p.id); }} className="p-1 rounded" style={{ color: "#EF4444" }} title="Delete"><Trash2 size={12} /></button>
+                            <button onClick={() => { if (confirm("Delete this purchase?")) deletePurchase.mutate(p.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }} title="Delete"><Trash2 size={12} /></button>
                           </div>
                         </td>
                       </tr>
@@ -383,7 +383,7 @@ export default function PurchasesListPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.supplierName?.trim() || !form.itemDescription?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Save Purchase"}
               </button>
             </div>
@@ -470,7 +470,7 @@ function PaymentsPanel({ purchaseId, branchId, total, showPayForm, onShowPayForm
                   <div className="text-[10px]" style={{ color: DIM }}>{pay.paymentDate} · {pay.method}{pay.reference ? ` · ${pay.reference}` : ""}</div>
                 </div>
               </div>
-              <button onClick={() => { if (confirm("Delete this payment?")) onDeletePayment(pay.id); }} style={{ color: "#EF4444" }}>
+              <button onClick={() => { if (confirm("Delete this payment?")) onDeletePayment(pay.id); }} style={{ color: "var(--color-danger)" }}>
                 <Trash2 size={11} />
               </button>
             </div>

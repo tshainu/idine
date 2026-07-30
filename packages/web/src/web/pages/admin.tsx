@@ -124,7 +124,7 @@ export default function AdminPage() {
         <div className="p-4 border-b" style={{ borderColor: "var(--color-border)" }}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--color-gold)" }}>
-              <UtensilsCrossed size={15} color="#1A0A2E" />
+              <UtensilsCrossed size={15} color="var(--color-surface)" />
             </div>
             <div>
               <div className="font-bold text-sm" style={{ color: "var(--color-gold)" }}>iDine</div>
@@ -138,7 +138,7 @@ export default function AdminPage() {
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{
                 background: activeTab === item.id ? "var(--color-gold)" : "transparent",
-                color: activeTab === item.id ? "#1A0A2E" : "var(--color-text-muted)",
+                color: activeTab === item.id ? "var(--color-surface)" : "var(--color-text-muted)",
               }}>
               <item.icon size={16} />
               {item.label}
@@ -157,7 +157,7 @@ export default function AdminPage() {
           {activeTab !== "dashboard" && activeTab !== "branches" && (
             <button onClick={() => { setShowForm(true); setEditItem(null); setFormData({}); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-              style={{ background: "var(--color-gold)", color: "#1A0A2E" }}>
+              style={{ background: "var(--color-gold)", color: "var(--color-surface)" }}>
               <Plus size={14} /> Add New
             </button>
           )}
@@ -207,7 +207,7 @@ export default function AdminPage() {
                         <td className="px-5 py-2" style={{ color: "var(--color-text-muted)" }}>{order.customerName}</td>
                         <td className="px-5 py-2">
                           <span className="px-2 py-0.5 rounded text-xs font-bold capitalize"
-                            style={{ background: "#22C55E22", color: "var(--color-success)" }}>
+                            style={{ background: "var(--color-success)22", color: "var(--color-success)" }}>
                             {order.status}
                           </span>
                         </td>
@@ -254,7 +254,7 @@ export default function AdminPage() {
                           <td className="px-5 py-3">
                             <div className="flex gap-1">
                               {item.isVeg && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "var(--color-success)" + "22", color: "var(--color-success)" }}>Veg</span>}
-                              {item.isBeverage && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#38BDF822", color: "#38BDF8" }}>Bev</span>}
+                              {item.isBeverage && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "var(--color-info)22", color: "var(--color-info)" }}>Bev</span>}
                               {item.isPromo && <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "var(--color-gold)" + "22", color: "var(--color-gold)" }}>Promo</span>}
                             </div>
                           </td>
@@ -505,7 +505,7 @@ export default function AdminPage() {
               </button>
               <button onClick={handleSubmit}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold"
-                style={{ background: "var(--color-gold)", color: "#1A0A2E" }}>
+                style={{ background: "var(--color-gold)", color: "var(--color-surface)" }}>
                 {editItem ? "Save Changes" : "Create"}
               </button>
             </div>

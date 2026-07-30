@@ -22,7 +22,7 @@ const BORD   = "var(--color-border)";
 const GOLD   = "var(--color-gold)";
 const TEXT   = "var(--color-text)";
 const MUTED  = "var(--color-text-muted)";
-const PURPLE = "#7C3AED";
+const PURPLE = "var(--color-purple)";
 const DIM   = "var(--color-text-dim)";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ function Toast({ msg, onDone }: { msg: string; onDone: () => void }) {
   useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
   return (
     <div className="ml-3 px-3 py-1 rounded-lg text-xs font-semibold animate-fade-up"
-      style={{ background: GOLD, color: "#1A0A2E", whiteSpace: "nowrap" }}>
+      style={{ background: GOLD, color: "var(--color-surface)", whiteSpace: "nowrap" }}>
       {msg}
     </div>
   );
@@ -245,7 +245,7 @@ function CustomerPicker({
               <button onClick={() => saveMut.mutate()}
                 disabled={!form.name || saveMut.isPending}
                 className="flex-1 py-2 rounded text-xs font-semibold disabled:opacity-40"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {saveMut.isPending ? <Spinner size={12} /> : "Save"}
               </button>
             </div>
@@ -330,7 +330,7 @@ function ModifierPicker({
         <div className="border-t px-3 py-2" style={{ borderColor: BORD }}>
           <button onClick={onClose}
             className="w-full py-2 rounded text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             Done ({selected.length} selected)
           </button>
         </div>
@@ -430,7 +430,7 @@ function OrderDetailsModal({ order, items, onClose, onCreateInvoice }: {
         <div className="flex gap-2 px-5 py-3 border-t" style={{ borderColor: BORD }}>
           <button onClick={onCreateInvoice}
             className="flex-1 py-2 rounded text-xs font-semibold transition-all hover:brightness-110"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             Create Invoice & Close
           </button>
           <button onClick={onClose}
@@ -489,7 +489,9 @@ function FinalizeModal({
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
   const due       = Math.max(0, payable - totalPaid);
+  const balanceToReturn = Math.max(0, totalPaid - payable);
   const change    = activeMethod === "Cash" ? Math.max(0, (parseFloat(givenAmount) || 0) - (parseFloat(amount) || 0)) : 0;
+  const canSubmit = payments.length > 0 && due <= 0;
 
   const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
 
@@ -550,7 +552,7 @@ function FinalizeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
       <div className="rounded-xl border shadow-2xl overflow-hidden flex flex-col"
-        style={{ background: SURF, borderColor: BORD, width: 720, maxHeight: "90vh" }}>
+        style={{ background: SURF, borderColor: BORD, width: "min(1040px, 96vw)", maxHeight: "94vh" }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORD }}>
@@ -624,7 +626,7 @@ function FinalizeModal({
             {activeMethod === "Cash" && (parseFloat(givenAmount) || 0) > 0 && (
               <div className="text-xs px-3 py-2 rounded border" style={{ borderColor: BORD, background: BG }}>
                 <span style={{ color: MUTED }}>Change: </span>
-                <span className="font-bold font-mono" style={{ color: "#22C55E" }}>LKR {change.toFixed(2)}</span>
+                <span className="font-bold font-mono" style={{ color: "var(--color-success)" }}>LKR {change.toFixed(2)}</span>
               </div>
             )}
 
@@ -681,12 +683,18 @@ function FinalizeModal({
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color: MUTED }}>Paid</span>
-                    <span className="font-bold font-mono" style={{ color: "#22C55E" }}>LKR{totalPaid.toFixed(2)}</span>
+                    <span className="font-bold font-mono" style={{ color: "var(--color-success)" }}>LKR{totalPaid.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-1" style={{ borderColor: BORD }}>
                     <span style={{ color: MUTED }}>Due</span>
-                    <span className="font-bold font-mono" style={{ color: due > 0 ? "#EF4444" : "#22C55E" }}>
+                    <span className="font-bold font-mono" style={{ color: due > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
                       LKR{due.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: MUTED }}>Balance</span>
+                    <span className="font-bold font-mono" style={{ color: balanceToReturn > 0 ? "var(--color-info)" : MUTED }}>
+                      LKR{balanceToReturn.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -723,7 +731,7 @@ function FinalizeModal({
                 </button>
                 <button onClick={handleClear}
                   className="py-1.5 rounded border text-xs font-medium"
-                  style={{ borderColor: "#EF4444", color: "#EF4444", background: "transparent" }}>
+                  style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)", background: "transparent" }}>
                   Clear
                 </button>
               </div>
@@ -763,7 +771,7 @@ function FinalizeModal({
                   {(itemDiscount + extraDiscount) > 0 && (
                     <div className="flex justify-between">
                       <span style={{ color: MUTED }}>Discount</span>
-                      <span style={{ color: "#EF4444" }}>-{(itemDiscount + extraDiscount).toFixed(2)}</span>
+                      <span style={{ color: "var(--color-danger)" }}>-{(itemDiscount + extraDiscount).toFixed(2)}</span>
                     </div>
                   )}
                   {serviceCharge > 0 && (
@@ -787,13 +795,14 @@ function FinalizeModal({
         <div className="grid grid-cols-2 border-t" style={{ borderColor: BORD }}>
           <button onClick={onClose}
             className="py-3 text-sm font-semibold"
-            style={{ background: "#EF4444", color: "#fff" }}>
+            style={{ background: "var(--color-danger)", color: "#fff" }}>
             ✕ Cancel
           </button>
-          <button onClick={handleSubmit}
-            className="py-3 text-sm font-semibold"
-            style={{ background: "#22C55E", color: "#fff" }}>
-            ⊞ Submit
+          <button onClick={handleSubmit} disabled={!canSubmit}
+            className="py-3 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: "var(--color-success)", color: "#fff" }}
+            title={!canSubmit ? "Add full payment amount before submitting" : ""}>
+            ⊞ Submit{!canSubmit && due > 0 ? ` (Due LKR${due.toFixed(2)})` : ""}
           </button>
         </div>
 
@@ -912,7 +921,7 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
           {isLoading
             ? <div className="flex justify-center items-center py-16 text-sm" style={{ color: "#9ca3af" }}>Loading…</div>
             : !order
-              ? <div className="text-center py-16 text-sm" style={{ color: "#ef4444" }}>Failed to load order</div>
+              ? <div className="text-center py-16 text-sm" style={{ color: "var(--color-danger)" }}>Failed to load order</div>
               : (
                 <div id={printId} style={{
                   fontFamily: "'Courier New', Courier, monospace",
@@ -1285,7 +1294,12 @@ export default function POSPage() {
     mutationFn: async ({ orderId, mode }: { orderId: number; mode: "all" | "new" }) => {
       const res = await (await api.orders[":id"].$get({ param: { id: String(orderId) } })).json() as any;
       const { order, items } = res;
-      const ts = (v: any) => { const t = v ?? 0; return t < 1e12 ? t * 1000 : t; };
+      const ts = (v: any) => {
+        const t = v ?? 0;
+        if (typeof t === "number") return t < 1e12 ? t * 1000 : t;
+        const parsed = new Date(t).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
       let printItems = items || [];
       if (mode === "new") {
         const orderTs = ts(order.createdAt);
@@ -1561,11 +1575,11 @@ export default function POSPage() {
     { key: "delivery",  label: "Delivery",  icon: Truck },
   ];
   const FILTER_PILLS = [
-    { key: "online", label: "Online",     color: "#22C55E" },
-    { key: "veg",    label: "Vegetarian", color: "#22C55E" },
+    { key: "online", label: "Online",     color: "var(--color-success)" },
+    { key: "veg",    label: "Vegetarian", color: "var(--color-success)" },
     { key: "bev",    label: "Beverage",   color: "#6B7280" },
-    { key: "combo",  label: "Combo",      color: "#F5A623" },
-    { key: "promo",  label: "Promo",      color: "#F472B6" },
+    { key: "combo",  label: "Combo",      color: "var(--color-gold)" },
+    { key: "promo",  label: "Promo",      color: "var(--color-pink)" },
   ];
 
   // ── Render
@@ -1587,7 +1601,7 @@ export default function POSPage() {
                 <Icon size={15} />
                 {!!btn.badge && (
                   <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold"
-                    style={{ background: "#EF4444", color: "#fff" }}>{btn.badge}</span>
+                    style={{ background: "var(--color-danger)", color: "#fff" }}>{btn.badge}</span>
                 )}
               </button>
             );
@@ -1658,7 +1672,7 @@ export default function POSPage() {
                           <span className="text-[9px] px-1 py-0.5 rounded font-bold text-white" style={{ background: "#8B5CF6" }}>QR</span>
                         )}
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-white"
-                          style={{ background: order.type === "dine-in" ? "#22C55E" : order.type === "takeaway" ? "#F5A623" : "#38BDF8" }}>
+                          style={{ background: order.type === "dine-in" ? "var(--color-success)" : order.type === "takeaway" ? "var(--color-gold)" : "var(--color-info)" }}>
                           {order.type === "dine-in" ? "Dine" : order.type === "takeaway" ? "Take" : "Deliv"}
                         </span>
                       </div>
@@ -1687,7 +1701,7 @@ export default function POSPage() {
                       style={{ background: GOLD, color: "#000" }}>All Items</button>
                     <button onClick={() => { reprintKOT.mutate({ orderId: selectedOrderId, mode: "new" }); setShowKotMenu(false); }}
                       className="w-full py-2 rounded text-xs font-semibold transition-all hover:brightness-110"
-                      style={{ background: "#22C55E", color: "#000" }}>New Items</button>
+                      style={{ background: "var(--color-success)", color: "#000" }}>New Items</button>
                     {/* pointer */}
                     <div className="absolute -bottom-1.5 left-6 w-3 h-3 rotate-45" style={{ background: SURF2, borderRight: `1px solid ${BORD}`, borderBottom: `1px solid ${BORD}` }} />
                   </div>
@@ -1806,7 +1820,7 @@ export default function POSPage() {
                             <span className="w-5 text-center text-xs font-bold" style={{ color: TEXT }}>{item.qty}</span>
                             <button onClick={() => changeQty(item.menuItemId, 1)}
                               className="w-5 h-5 flex items-center justify-center rounded transition-colors"
-                              style={{ background: GOLD, color: "#1A0A2E" }}><Plus size={9} /></button>
+                              style={{ background: GOLD, color: "var(--color-surface)" }}><Plus size={9} /></button>
                           </div>
                         </td>
                         <td className="px-2 py-2">
@@ -1851,7 +1865,7 @@ export default function POSPage() {
             </button>
             <button onClick={() => placeOrder.mutate("quick-invoice")} disabled={cartItems.length === 0 || placeOrder.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
-              style={{ background: "#38BDF8" }}>
+              style={{ background: "var(--color-info)" }}>
               {placeOrder.isPending ? <Spinner size={14} /> : <><Receipt size={14} /> Quick Invoice</>}
             </button>
             <button onClick={() => placeOrder.mutate("confirmed")} disabled={cartItems.length === 0 || placeOrder.isPending}
@@ -1935,7 +1949,7 @@ export default function POSPage() {
                               : <Camera size={32} strokeWidth={1} style={{ color: DIM }} />}
                             {inCart && (
                               <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                                style={{ background: GOLD, color: "#1A0A2E" }}>
+                                style={{ background: GOLD, color: "var(--color-surface)" }}>
                                 {inCart.qty}
                               </span>
                             )}
@@ -2112,7 +2126,7 @@ export default function POSPage() {
             <div className="p-5 space-y-3 overflow-y-auto max-h-[70vh]">
               {/* Name */}
               <div>
-                <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>Name <span style={{ color: "#EF4444" }}>*</span></label>
+                <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>Name <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input
                   className="w-full px-3 py-2 rounded border text-xs focus:outline-none"
                   style={{ background: "var(--color-bg)", color: TEXT, borderColor: BORD }}
@@ -2159,7 +2173,7 @@ export default function POSPage() {
                 ].map(({ label, key, required }) => (
                   <div key={key}>
                     <label className="block text-xs mb-1 font-medium" style={{ color: MUTED }}>
-                      {label}{required && <span style={{ color: "#EF4444" }}> *</span>}
+                      {label}{required && <span style={{ color: "var(--color-danger)" }}> *</span>}
                     </label>
                     <input
                       type="number" min="0" step="0.01"
@@ -2199,7 +2213,7 @@ export default function POSPage() {
               </div>
 
               {qaError && (
-                <div className="text-xs px-3 py-2 rounded border" style={{ color: "#F87171", borderColor: "#EF444444", background: "#EF444411" }}>
+                <div className="text-xs px-3 py-2 rounded border" style={{ color: "#F87171", borderColor: "var(--color-danger)44", background: "var(--color-danger)11" }}>
                   {qaError}
                 </div>
               )}

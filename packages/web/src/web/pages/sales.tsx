@@ -5,27 +5,27 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
 const TEXT = "#F3F4F6";
-const PURPLE = "#7C3AED";
+const PURPLE = "var(--color-purple)";
 
 const STATUS_COLOR: Record<string, string> = {
-  open: "#22C55E",
-  draft: "#F5A623",
-  completed: "#38BDF8",
-  billed: "#A78BFA",
-  cancelled: "#EF4444",
+  open: "var(--color-success)",
+  draft: "var(--color-gold)",
+  completed: "var(--color-info)",
+  billed: "var(--color-purple-light)",
+  cancelled: "var(--color-danger)",
 };
 
 const TYPE_COLOR: Record<string, string> = {
-  "dine-in": "#22C55E",
-  takeaway: "#F5A623",
-  delivery: "#38BDF8",
+  "dine-in": "var(--color-success)",
+  takeaway: "var(--color-gold)",
+  delivery: "var(--color-info)",
 };
 
 type DateRange = "today" | "week" | "month" | "year" | "custom";
@@ -147,8 +147,8 @@ export default function SalesPage() {
             {[
               { label: "Total Orders", value: filtered.length, color: GOLD },
               { label: "Total Revenue", value: `LKR ${totalRevenue.toLocaleString()}`, color: GOLD },
-              { label: "Completed Revenue", value: `LKR ${completedRevenue.toLocaleString()}`, color: "#22C55E" },
-              { label: "Cancelled", value: filtered.filter(o => o.status === "cancelled").length, color: "#EF4444" },
+              { label: "Completed Revenue", value: `LKR ${completedRevenue.toLocaleString()}`, color: "var(--color-success)" },
+              { label: "Cancelled", value: filtered.filter(o => o.status === "cancelled").length, color: "var(--color-danger)" },
             ].map(c => (
               <div key={c.label} className="rounded-xl p-4 border" style={{ background: SURF, borderColor: BORD }}>
                 <div className="text-xl font-bold" style={{ color: c.color }}>{c.value}</div>

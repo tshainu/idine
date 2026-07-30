@@ -13,7 +13,7 @@ const TABLE_COLS: ColDef[] = [
   { key: "revenue",   label: "Revenue",   align: "right", render: v => <span style={{ color: GOLD, fontWeight: 700 }}>LKR {Math.round(Number(v)).toLocaleString()}</span> },
   { key: "avgPrice",  label: "Avg Price", align: "right", render: v => `LKR ${Math.round(Number(v)).toLocaleString()}` },
   { key: "quad",      label: "Matrix",    render: v => {
-    const c: Record<string, string> = { Star: "#F5A623", Puzzle: "#38BDF8", "Plow Horse": "#22C55E", Dog: "#EF4444" };
+    const c: Record<string, string> = { Star: "var(--color-gold)", Puzzle: "var(--color-info)", "Plow Horse": "var(--color-success)", Dog: "var(--color-danger)" };
     return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: (c[v] || "#fff") + "33", color: c[v] || "#fff" }}>{v}</span>;
   }},
 ];
@@ -83,7 +83,7 @@ export default function MenuReport() {
     .sort((a, b) => b.revenue - a.revenue)
     .map((item, i) => ({ rank: i + 1, ...item }));
 
-  const QUAD_COLOR: Record<string, string> = { Star: "#F5A623", Puzzle: "#38BDF8", "Plow Horse": "#22C55E", Dog: "#EF4444" };
+  const QUAD_COLOR: Record<string, string> = { Star: "var(--color-gold)", Puzzle: "var(--color-info)", "Plow Horse": "var(--color-success)", Dog: "var(--color-danger)" };
 
   const TABS = [
     { key: "top10", label: "Top 10 Items" },
@@ -209,7 +209,7 @@ export default function MenuReport() {
                     <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: BORD }}>
                       <div className="h-full rounded-full flex items-center pl-2"
                         style={{ width: `${(item.revenue / maxRev2) * 100}%`, background: GOLD }}>
-                        <span className="text-[10px] font-bold" style={{ color: "#1A0A2E" }}>{item.qty}x</span>
+                        <span className="text-[10px] font-bold" style={{ color: "var(--color-surface)" }}>{item.qty}x</span>
                       </div>
                     </div>
                     <div className="w-28 text-xs text-right font-bold" style={{ color: TEXT }}>

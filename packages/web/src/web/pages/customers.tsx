@@ -5,9 +5,9 @@ import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Search, Phone, User, Star, MapPin, Calendar } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
@@ -28,9 +28,9 @@ function qualityScore(orderCnt: number, spent: number, createdAt: string | null)
 }
 
 function scoreColor(score: number) {
-  if (score >= 8) return "#22C55E";
-  if (score >= 5) return "#F5A623";
-  return "#EF4444";
+  if (score >= 8) return "var(--color-success)";
+  if (score >= 5) return "var(--color-gold)";
+  return "var(--color-danger)";
 }
 
 export default function CustomersPage() {
@@ -114,7 +114,7 @@ export default function CustomersPage() {
           <div className="font-bold text-base" style={{ color: TEXT }}>Customers</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} />
             Add Customer
           </button>
@@ -130,8 +130,8 @@ export default function CustomersPage() {
                 const d = new Date(c.createdAt);
                 const now = new Date();
                 return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-              }).length, color: "#22C55E" },
-              { label: "Regulars (≥5 orders)", value: customers.filter(c => orderCount(c.id) >= 5).length, color: "#A78BFA" },
+              }).length, color: "var(--color-success)" },
+              { label: "Regulars (≥5 orders)", value: customers.filter(c => orderCount(c.id) >= 5).length, color: "var(--color-purple-light)" },
             ].map(s => (
               <div key={s.label} className="px-4 py-2.5 rounded-xl border" style={{ background: SURF, borderColor: BORD }}>
                 <span className="text-base font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -199,7 +199,7 @@ export default function CustomersPage() {
                           {cnt}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: "#22C55E" }}>
+                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: "var(--color-success)" }}>
                         LKR {spent.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: MUTED }}>
@@ -224,7 +224,7 @@ export default function CustomersPage() {
                           <button onClick={() => openEdit(c)} className="p-1 rounded" style={{ color: GOLD }}>
                             <Pencil size={13} />
                           </button>
-                          <button onClick={() => { if (confirm(`Delete ${c.name}?`)) deleteCustomer.mutate(c.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                          <button onClick={() => { if (confirm(`Delete ${c.name}?`)) deleteCustomer.mutate(c.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}>
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -268,7 +268,7 @@ export default function CustomersPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.name?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Create"}
               </button>
             </div>

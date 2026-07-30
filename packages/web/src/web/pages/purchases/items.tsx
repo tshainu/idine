@@ -4,7 +4,7 @@ import { getBranchId } from "../../lib/store";
 import { Sidebar } from "../../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Search, Package, X, History, TrendingUp, CalendarDays } from "lucide-react";
 
-const GOLD = "#F5A623";
+const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
 const BORD = "var(--color-border)";
@@ -79,7 +79,7 @@ export default function PurchaseItemsPage() {
           <div className="font-bold text-sm" style={{ color: TEXT }}>Purchase Items</div>
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "#1A0A2E" }}>
+            style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} /> New Item
           </button>
         </div>
@@ -131,7 +131,7 @@ export default function PurchaseItemsPage() {
                       <div className="flex items-center gap-2">
                         <button onClick={() => setHistoryItem(i)} className="p-1 rounded" style={{ color: "#60A5FA" }} title="Purchase History"><History size={13} /></button>
                         <button onClick={() => openEdit(i)} className="p-1 rounded" style={{ color: GOLD }}><Pencil size={13} /></button>
-                        <button onClick={() => { if (confirm("Remove this item?")) remove.mutate(i.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}><Trash2 size={13} /></button>
+                        <button onClick={() => { if (confirm("Remove this item?")) remove.mutate(i.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -215,8 +215,8 @@ export default function PurchaseItemsPage() {
                         <td className="px-4 py-2.5">
                           <span className="px-2 py-0.5 rounded text-[10px] font-semibold capitalize"
                             style={{
-                              background: r.status === "paid" ? "#34D39922" : r.status === "due" ? "#EF444422" : "#F5A62322",
-                              color: r.status === "paid" ? "#34D399" : r.status === "due" ? "#EF4444" : GOLD,
+                              background: r.status === "paid" ? "#34D39922" : r.status === "due" ? "var(--color-danger)22" : "var(--color-gold)22",
+                              color: r.status === "paid" ? "#34D399" : r.status === "due" ? "var(--color-danger)" : GOLD,
                             }}>
                             {r.status || "—"}
                           </span>
@@ -278,7 +278,7 @@ export default function PurchaseItemsPage() {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleSubmit} disabled={!form.name?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 {editItem ? "Update" : "Add Item"}
               </button>
             </div>

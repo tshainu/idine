@@ -1,21 +1,21 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { getBranchId } from "../lib/store";
+import { getBranchId, getUser } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Trash2, Shield, User, Pencil, KeyRound, ShieldCheck } from "lucide-react";
 
-const GOLD = "#F5A623";
-const BG = "#0D0618";
-const SURF = "#1A0A2E";
+const GOLD = "var(--color-gold)";
+const BG = "var(--color-bg)";
+const SURF = "var(--color-surface)";
 const BORD = "#2D1B4E";
 const MUTED = "#9CA3AF";
 const DIM = "#6B7280";
 const TEXT = "#F3F4F6";
-const PURPLE = "#7C3AED";
-const ROLE_COLOR: Record<string, string> = { superadmin: "#A78BFA", admin: GOLD, manager: "#F97316", waiter: "#22C55E", cashier: "#38BDF8" };
+const PURPLE = "var(--color-purple)";
+const ROLE_COLOR: Record<string, string> = { superadmin: "var(--color-purple-light)", admin: GOLD, manager: "#F97316", waiter: "var(--color-success)", cashier: "var(--color-info)" };
 
-type ModalType = "create" | "edit" | "pin" | null;
+type ModalType = "create" | "edit" | "password" | null;
 type TabType = "users" | "privileges";
 
 const GENERAL_SECTIONS = [
@@ -56,8 +56,10 @@ export default function UsersPage() {
   const [modal, setModal] = useState<ModalType>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
-  const [pinForm, setPinForm] = useState({ pin: "", confirmPin: "" });
-  const [pinError, setPinError] = useState("");
+  const [pwForm, setPwForm] = useState({ password: "", confirmPassword: "" });
+  const [pwError, setPwError] = useState("");
+  const currentUser = getUser();
+  const businessUserId = currentUser?.userId || "";
 
   // Privileges state
   const [privileges, setPrivileges] = useState<Record<string, Record<string, boolean>>>(DEFAULT_PRIVILEGES);
@@ -109,36 +111,52 @@ export default function UsersPage() {
     },
   });
 
-  function closeModal() { setModal(null); setSelectedUser(null); setForm({}); setPinForm({ pin: "", confirmPin: "" }); setPinError(""); }
+  function closeModal() { setModal(null); setSelectedUser(null); setForm({}); setPwForm({ password: "", confirmPassword: "" }); setPwError(""); }
 
   function openEdit(u: any) {
     setSelectedUser(u);
-    setForm({ name: u.name, role: u.role });
+    setForm({ name: u.name, role: u.role, username: u.username });
     setModal("edit");
   }
 
-  function openChangePin(u: any) {
+  function openChangePassword(u: any) {
     setSelectedUser(u);
-    setPinForm({ pin: "", confirmPin: "" });
-    setPinError("");
-    setModal("pin");
+    setPwForm({ password: "", confirmPassword: "" });
+    setPwError("");
+    setModal("password");
   }
 
-  function handleCreate() {
-    if (!form.name?.trim() || !form.pin || form.pin.length !== 4) return;
-    createUser.mutate({ name: form.name.trim(), pin: form.pin, role: form.role || "waiter" });
+  async function handleCreate() {
+    if (!form.name?.trim() || !form.username?.trim() || !form.password || form.password.length < 4) return;
+    await createUser.mutateAsync({
+      name: form.name.trim(),
+      username: form.username.trim(),
+      password: form.password,
+      userId: businessUserId,
+      role: form.role || "waiter",
+      isActive: true,
+    });
   }
 
   function handleEdit() {
-    if (!form.name?.trim()) return;
-    updateUser.mutate({ id: selectedUser.id, data: { name: form.name.trim(), role: form.role } });
+    if (!form.name?.trim() || !form.username?.trim()) return;
+    updateUser.mutate({ id: selectedUser.id, data: { name: form.name.trim(), role: form.role, username: form.username.trim() } });
   }
 
-  function handleChangePin() {
-    setPinError("");
-    if (pinForm.pin.length !== 4) { setPinError("PIN must be 4 digits"); return; }
-    if (pinForm.pin !== pinForm.confirmPin) { setPinError("PINs do not match"); return; }
-    updateUser.mutate({ id: selectedUser.id, data: { pin: pinForm.pin } });
+  async function handleChangePassword() {
+    setPwError("");
+    if (pwForm.password.length < 4) { setPwError("Password must be at least 4 characters"); return; }
+    if (pwForm.password !== pwForm.confirmPassword) { setPwError("Passwords do not match"); return; }
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUser.id, newPassword: pwForm.password }),
+      });
+      if (!res.ok) { const d = await res.json(); setPwError((d as any)?.error || "Failed to update password"); return; }
+      closeModal();
+    } catch {
+      setPwError("Failed to update password");
+    }
   }
 
   function togglePriv(role: string, section: string) {
@@ -169,7 +187,7 @@ export default function UsersPage() {
           {tab === "users" && (
             <button onClick={() => { setForm({ role: "waiter" }); setModal("create"); }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: GOLD, color: "#1A0A2E" }}>
+              style={{ background: GOLD, color: "var(--color-surface)" }}>
               <Plus size={13} />
               Add User
             </button>
@@ -215,7 +233,7 @@ export default function UsersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${BORD}` }}>
-                    {["Name", "PIN", "Role", "Branch", "Actions"].map(h => (
+                    {["Name", "Username", "Role", "Branch", "Actions"].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>{h}</th>
                     ))}
                   </tr>
@@ -238,7 +256,7 @@ export default function UsersPage() {
                           <span className="text-xs font-medium" style={{ color: TEXT }}>{u.name}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3 font-mono text-xs tracking-widest" style={{ color: DIM }}>••••</td>
+                      <td className="px-5 py-3 font-mono text-xs" style={{ color: DIM }}>{u.username || "—"}</td>
                       <td className="px-5 py-3">
                         <span className="px-2 py-0.5 rounded text-xs font-medium capitalize"
                           style={{ background: (ROLE_COLOR[u.role] || DIM) + "22", color: ROLE_COLOR[u.role] || DIM }}>
@@ -253,10 +271,10 @@ export default function UsersPage() {
                           <button onClick={() => openEdit(u)} className="p-1 rounded" title="Edit user" style={{ color: GOLD }}>
                             <Pencil size={13} />
                           </button>
-                          <button onClick={() => openChangePin(u)} className="p-1 rounded" title="Change PIN" style={{ color: "#38BDF8" }}>
+                          <button onClick={() => openChangePassword(u)} className="p-1 rounded" title="Change Password" style={{ color: "var(--color-info)" }}>
                             <KeyRound size={13} />
                           </button>
-                          <button onClick={() => { if (confirm(`Delete ${u.name}?`)) deleteUser.mutate(u.id); }} className="p-1 rounded" style={{ color: "#EF4444" }}>
+                          <button onClick={() => { if (confirm(`Delete ${u.name}?`)) deleteUser.mutate(u.id); }} className="p-1 rounded" style={{ color: "var(--color-danger)" }}>
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -281,7 +299,7 @@ export default function UsersPage() {
                     onClick={() => savePrivileges.mutate()}
                     disabled={savePrivileges.isPending}
                     className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                    style={{ background: privSaved ? "#22C55E" : PURPLE, color: "#fff" }}
+                    style={{ background: privSaved ? "var(--color-success)" : PURPLE, color: "#fff" }}
                   >
                     {privSaved ? "Saved!" : savePrivileges.isPending ? "Saving…" : "Save Privileges"}
                   </button>
@@ -399,11 +417,20 @@ export default function UsersPage() {
                   style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="e.g. Ahmed Rashid" />
               </div>
               <div>
-                <label className="text-xs mb-1 block" style={{ color: MUTED }}>PIN (4 digits) *</label>
-                <input type="password" maxLength={4} inputMode="numeric" value={form.pin || ""}
-                  onChange={e => setForm(p => ({ ...p, pin: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
-                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none tracking-widest"
-                  style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="••••" />
+                <label className="text-xs mb-1 block" style={{ color: MUTED }}>Username *</label>
+                <input type="text" value={form.username || ""} onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
+                  style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="e.g. waiter1" />
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: MUTED }}>Password *</label>
+                <input type="password" value={form.password || ""}
+                  onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
+                  style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="Min 4 characters" />
+              </div>
+              <div className="text-xs px-2 py-1.5 rounded" style={{ background: BG, color: DIM }}>
+                Business User ID: <span className="font-mono" style={{ color: GOLD }}>{businessUserId || "—"}</span>
               </div>
               <div>
                 <label className="text-xs mb-1 block" style={{ color: MUTED }}>Role</label>
@@ -420,9 +447,9 @@ export default function UsersPage() {
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={closeModal} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
-              <button onClick={handleCreate} disabled={!form.name?.trim() || form.pin?.length !== 4}
+              <button onClick={handleCreate} disabled={!form.name?.trim() || !form.username?.trim() || !form.password || form.password.length < 4}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 Create
               </button>
             </div>
@@ -444,6 +471,12 @@ export default function UsersPage() {
                   style={{ background: BG, borderColor: BORD, color: TEXT }} />
               </div>
               <div>
+                <label className="text-xs mb-1 block" style={{ color: MUTED }}>Username *</label>
+                <input type="text" value={form.username || ""} onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
+                  style={{ background: BG, borderColor: BORD, color: TEXT }} />
+              </div>
+              <div>
                 <label className="text-xs mb-1 block" style={{ color: MUTED }}>Role</label>
                 <select value={form.role || "waiter"} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
                   className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
@@ -456,12 +489,12 @@ export default function UsersPage() {
                 </select>
               </div>
             </div>
-            <p className="text-xs mt-3" style={{ color: DIM }}>To change PIN, use the key icon on the user list.</p>
+            <p className="text-xs mt-3" style={{ color: DIM }}>To change password, use the key icon on the user list.</p>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={closeModal} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
               <button onClick={handleEdit} disabled={!form.name?.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: GOLD, color: "#1A0A2E" }}>
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
                 Save Changes
               </button>
             </div>
@@ -469,38 +502,38 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Change PIN Modal */}
-      {modal === "pin" && selectedUser && (
+      {/* Change Password Modal */}
+      {modal === "password" && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
           <div className="w-80 rounded-2xl p-6 border" style={{ background: SURF, borderColor: BORD }}>
             <div className="flex items-center gap-2 mb-1">
-              <KeyRound size={16} color="#38BDF8" />
-              <div className="font-bold text-sm" style={{ color: TEXT }}>Change PIN</div>
+              <KeyRound size={16} color="var(--color-info)" />
+              <div className="font-bold text-sm" style={{ color: TEXT }}>Change Password</div>
             </div>
             <div className="text-xs mb-4" style={{ color: DIM }}>For: {selectedUser.name}</div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs mb-1 block" style={{ color: MUTED }}>New PIN (4 digits)</label>
-                <input type="password" maxLength={4} inputMode="numeric"
-                  value={pinForm.pin} onChange={e => setPinForm(p => ({ ...p, pin: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
-                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none tracking-widest text-center text-lg"
-                  style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="••••" />
+                <label className="text-xs mb-1 block" style={{ color: MUTED }}>New Password</label>
+                <input type="password"
+                  value={pwForm.password} onChange={e => setPwForm(p => ({ ...p, password: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
+                  style={{ background: BG, borderColor: BORD, color: TEXT }} placeholder="Min 4 characters" />
               </div>
               <div>
-                <label className="text-xs mb-1 block" style={{ color: MUTED }}>Confirm PIN</label>
-                <input type="password" maxLength={4} inputMode="numeric"
-                  value={pinForm.confirmPin} onChange={e => setPinForm(p => ({ ...p, confirmPin: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
-                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none tracking-widest text-center text-lg"
-                  style={{ background: BG, borderColor: pinError ? "#EF4444" : BORD, color: TEXT }} placeholder="••••" />
+                <label className="text-xs mb-1 block" style={{ color: MUTED }}>Confirm Password</label>
+                <input type="password"
+                  value={pwForm.confirmPassword} onChange={e => setPwForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none"
+                  style={{ background: BG, borderColor: pwError ? "var(--color-danger)" : BORD, color: TEXT }} placeholder="Repeat password" />
               </div>
-              {pinError && <p className="text-xs" style={{ color: "#EF4444" }}>{pinError}</p>}
+              {pwError && <p className="text-xs" style={{ color: "var(--color-danger)" }}>{pwError}</p>}
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={closeModal} className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
-              <button onClick={handleChangePin} disabled={pinForm.pin.length !== 4}
+              <button onClick={handleChangePassword} disabled={pwForm.password.length < 4}
                 className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: "#38BDF8", color: "#0D0618" }}>
-                Update PIN
+                style={{ background: "var(--color-info)", color: "var(--color-bg)" }}>
+                Update Password
               </button>
             </div>
           </div>

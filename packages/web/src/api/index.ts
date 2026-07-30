@@ -22,6 +22,9 @@ import { settings } from "./routes/settings";
 import { variations } from "./routes/variations";
 import { sync } from "./routes/sync";
 import { menuToken } from "./routes/menu-token";
+import { auth } from "./routes/auth";
+import { idsa } from "./routes/idsa";
+import { menuExtract } from "./routes/menu-extract";
 
 const app = new Hono()
   .basePath("api")
@@ -49,7 +52,10 @@ const app = new Hono()
   .route("/settings", settings)
   .route("/variations", variations)
   .route("/sync", sync)
-  .route("/menu", menuToken);
+  .route("/menu", menuToken)
+  .route("/auth", auth)
+  .route("/idsa", idsa)
+  .route("/menu-extract", menuExtract);
 
 export type AppType = typeof app;
 export default app;

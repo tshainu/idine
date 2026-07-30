@@ -8,7 +8,7 @@ import { CheckCircle, Clock, ChefHat, Printer } from "lucide-react";
 const TYPE_COLORS: Record<string, string> = {
   "dine-in": "var(--color-gold)",
   takeaway: "var(--color-purple-light)",
-  delivery: "#38BDF8",
+  delivery: "var(--color-info)",
 };
 
 function elapsed(date: string | Date): string {
@@ -72,7 +72,7 @@ export default function KDSPage() {
       <div className="flex items-center justify-between px-6 py-3 border-b" style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--color-gold)" }}>
-            <ChefHat size={18} color="#1A0A2E" />
+            <ChefHat size={18} color="var(--color-surface)" />
           </div>
           <div>
             <div className="font-bold text-sm" style={{ color: "var(--color-gold)" }}>iDine KDS</div>
@@ -87,7 +87,7 @@ export default function KDSPage() {
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
             style={{
               background: !selectedPrinter ? "var(--color-gold)" : "var(--color-surface-2)",
-              color: !selectedPrinter ? "#1A0A2E" : "var(--color-text-muted)",
+              color: !selectedPrinter ? "var(--color-surface)" : "var(--color-text-muted)",
             }}>
             All Stations
           </button>
@@ -96,7 +96,7 @@ export default function KDSPage() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
               style={{
                 background: selectedPrinter === p.id ? "var(--color-gold)" : "var(--color-surface-2)",
-                color: selectedPrinter === p.id ? "#1A0A2E" : "var(--color-text-muted)",
+                color: selectedPrinter === p.id ? "var(--color-surface)" : "var(--color-text-muted)",
                 border: "1px solid var(--color-border)",
               }}>
               {p.name}
