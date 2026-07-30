@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, StatusBar, Alert,
@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../lib/api";
-import { clearUser } from "../lib/auth";
+import { clearUser, loadUser, WaiterUser } from "../lib/auth";
 import { BottomNav } from "./tables";
 
 const C = {
@@ -43,11 +43,14 @@ const FILTERS = ["all", "pending", "preparing", "ready", "completed", "cancelled
 export default function HistoryScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState("all");
+  const [user, setUser] = useState<WaiterUser | null>(null);
+  useEffect(() => { loadUser().then(setUser); }, []);
+  const branchId = user?.branchId ?? 1;
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["orders-history", filter],
+    queryKey: ["orders-history", filter, branchId],
     queryFn: async () => {
-      const q: Record<string, string> = { branchId: "1" };
+      const q: Record<string, string> = { branchId: String(branchId) };
       if (filter !== "all") q.status = filter;
       const res = await (api.orders.$get as any)({ query: q });
       const json = await res.json() as any;

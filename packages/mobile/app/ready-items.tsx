@@ -1,10 +1,11 @@
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../lib/api";
-import { clearUser } from "../lib/auth";
+import { clearUser, loadUser, WaiterUser } from "../lib/auth";
 import { BottomNav } from "./tables";
 
 const C = {
@@ -24,11 +25,14 @@ const C = {
 export default function ReadyItemsScreen() {
   const router = useRouter();
   const qc = useQueryClient();
+  const [user, setUser] = useState<WaiterUser | null>(null);
+  useEffect(() => { loadUser().then(setUser); }, []);
+  const branchId = user?.branchId ?? 1;
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["orders-ready"],
+    queryKey: ["orders-ready", branchId],
     queryFn: async () => {
-      const res = await (api.orders.$get as any)({ query: { branchId: "1", status: "ready" } });
+      const res = await (api.orders.$get as any)({ query: { branchId: String(branchId), status: "ready" } });
       const json = await res.json() as any;
       return json.orders ?? json;
     },

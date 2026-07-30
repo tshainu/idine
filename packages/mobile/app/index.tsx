@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  StatusBar, Animated,
+  StatusBar, TextInput, KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import Constants from "expo-constants";
 import { loadUser, saveUser, WaiterUser } from "../lib/auth";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -26,12 +26,19 @@ const C = {
   border:  "#DDE1F5",
 };
 
+const baseUrl: string =
+  Constants.expoConfig?.extra?.apiUrl ??
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://69.169.97.195:6062/";
+
 export default function LoginScreen() {
   const router = useRouter();
-  const [pin, setPin] = useState("");
+  const [userId, setUserId] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(true);
-  const shakeAnim = new Animated.Value(0);
 
   useEffect(() => {
     loadUser().then((u) => {
@@ -40,44 +47,34 @@ export default function LoginScreen() {
     });
   }, []);
 
-  const shake = () => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
-    ]).start();
-  };
-
   const loginMutation = useMutation({
-    mutationFn: async (pinVal: string) => {
-      const res = await api.users.login.$post({ json: { pin: pinVal, branchId: 1 } });
-      if (!res.ok) throw new Error("Invalid PIN");
-      return res.json() as Promise<{ user: WaiterUser }>;
+    mutationFn: async () => {
+      const url = baseUrl.replace(/\/$/, "") + "/api/auth/login";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: userId.trim(), username: username.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as any)?.error || "Login failed");
+      return data as { user: WaiterUser };
     },
     onSuccess: async ({ user }) => {
       await saveUser({ ...user, branchId: user.branchId ?? 1 });
       router.replace("/tables" as any);
     },
-    onError: () => {
-      setError("Incorrect PIN. Try again.");
-      setPin("");
-      shake();
+    onError: (e: any) => {
+      setError(e?.message || "Login failed. Check your details and try again.");
     },
   });
 
-  const handleDigit = (d: string) => {
-    if (loginMutation.isPending) return;
-    if (pin.length >= 6) return;
-    const next = pin + d;
-    setPin(next);
+  const handleSubmit = () => {
     setError("");
-    if (next.length >= 4) setTimeout(() => loginMutation.mutate(next), 120);
-  };
-
-  const handleDel = () => {
-    setPin(p => p.slice(0, -1));
-    setError("");
+    if (!userId.trim() || !username.trim() || !password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+    loginMutation.mutate();
   };
 
   if (checking) {
@@ -88,74 +85,74 @@ export default function LoginScreen() {
     );
   }
 
-  const PAD = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","del"]];
-
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy3} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingVertical: 32 }}
+          keyboardShouldPersistTaps="handled">
 
-      {/* ── Brand ── */}
-      <View style={s.brandWrap}>
-        <View style={s.logoCircle}>
-          <Ionicons name="restaurant" size={28} color={C.white} />
-        </View>
-        <Text style={s.brandName}>AXIS RESTAURANT</Text>
-        <Text style={s.brandSub}>Waiter Portal</Text>
-      </View>
-
-      {/* ── Card ── */}
-      <View style={s.card}>
-        <Text style={s.cardTitle}>Enter your PIN</Text>
-
-        {/* Dots */}
-        <Animated.View style={[s.dots, { transform: [{ translateX: shakeAnim }] }]}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <View key={i} style={[s.dot, i < pin.length && s.dotFilled]} />
-          ))}
-        </Animated.View>
-
-        {error ? (
-          <View style={s.errorRow}>
-            <Ionicons name="alert-circle" size={14} color={C.red} />
-            <Text style={s.errorTxt}>{error}</Text>
-          </View>
-        ) : <View style={{ height: 22 }} />}
-
-        {/* Numpad */}
-        <View style={s.pad}>
-          {PAD.map((row, ri) => (
-            <View key={ri} style={s.padRow}>
-              {row.map((d, di) =>
-                d === "" ? <View key={di} style={s.padKey} /> :
-                d === "del" ? (
-                  <TouchableOpacity key={di} style={[s.padKey, s.padKeyDel]} onPress={handleDel} activeOpacity={0.7}>
-                    <Ionicons name="backspace-outline" size={22} color={C.muted} />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity key={di} style={s.padKey} onPress={() => handleDigit(d)} activeOpacity={0.7}>
-                    <Text style={s.padKeyTxt}>{d}</Text>
-                  </TouchableOpacity>
-                )
-              )}
+          {/* ── Brand ── */}
+          <View style={s.brandWrap}>
+            <View style={s.logoCircle}>
+              <Ionicons name="restaurant" size={28} color={C.white} />
             </View>
-          ))}
-        </View>
-
-        {loginMutation.isPending && (
-          <View style={s.loadRow}>
-            <ActivityIndicator color={C.accent} size="small" />
-            <Text style={s.loadTxt}>Authenticating…</Text>
+            <Text style={s.brandName}>iDINE</Text>
+            <Text style={s.brandSub}>Waiter Portal</Text>
           </View>
-        )}
-      </View>
+
+          {/* ── Card ── */}
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Sign In</Text>
+
+            <View style={s.field}>
+              <Text style={s.label}>Business User ID</Text>
+              <TextInput style={s.input} value={userId} onChangeText={setUserId}
+                placeholder="e.g. ELE5236" placeholderTextColor={C.muted} autoCapitalize="characters" autoCorrect={false} />
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.label}>Username</Text>
+              <TextInput style={s.input} value={username} onChangeText={setUsername}
+                placeholder="e.g. waiter1" placeholderTextColor={C.muted} autoCapitalize="none" autoCorrect={false} />
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.label}>Password</Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TextInput style={[s.input, { flex: 1 }]} value={password} onChangeText={setPassword}
+                  placeholder="Password" placeholderTextColor={C.muted} secureTextEntry={!showPw} autoCapitalize="none" />
+                <TouchableOpacity onPress={() => setShowPw(v => !v)} style={{ paddingHorizontal: 10 }}>
+                  <Ionicons name={showPw ? "eye-off-outline" : "eye-outline"} size={20} color={C.muted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {error ? (
+              <View style={s.errorRow}>
+                <Ionicons name="alert-circle" size={14} color={C.red} />
+                <Text style={s.errorTxt}>{error}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={loginMutation.isPending} activeOpacity={0.85}>
+              {loginMutation.isPending ? (
+                <ActivityIndicator color={C.white} size="small" />
+              ) : (
+                <Text style={s.submitTxt}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.navy, alignItems: "center", justifyContent: "center" },
+  safe: { flex: 1, backgroundColor: C.navy },
 
-  brandWrap: { alignItems: "center", marginBottom: 32 },
+  brandWrap: { alignItems: "center", marginBottom: 28 },
   logoCircle: {
     width: 68, height: 68, borderRadius: 34,
     backgroundColor: C.accent, alignItems: "center", justifyContent: "center",
@@ -163,36 +160,32 @@ const s = StyleSheet.create({
     shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
-  brandName: { color: C.white, fontSize: 20, fontWeight: "800", letterSpacing: 2 },
+  brandName: { color: C.white, fontSize: 22, fontWeight: "800", letterSpacing: 2 },
   brandSub: { color: C.muted, fontSize: 13, marginTop: 2, letterSpacing: 0.5 },
 
   card: {
-    backgroundColor: C.white, borderRadius: 24, paddingHorizontal: 28, paddingVertical: 32,
-    width: "88%", alignItems: "center",
+    backgroundColor: C.white, borderRadius: 24, paddingHorizontal: 24, paddingVertical: 28,
+    width: "88%",
     shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
-  cardTitle: { color: C.navy, fontSize: 17, fontWeight: "700", marginBottom: 22 },
+  cardTitle: { color: C.navy, fontSize: 18, fontWeight: "700", marginBottom: 20, textAlign: "center" },
 
-  dots: { flexDirection: "row", gap: 12, marginBottom: 4 },
-  dot: {
-    width: 14, height: 14, borderRadius: 7,
-    borderWidth: 2, borderColor: C.border, backgroundColor: "transparent",
+  field: { marginBottom: 14 },
+  label: { color: C.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
+  input: {
+    backgroundColor: C.light, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.navy,
   },
-  dotFilled: { backgroundColor: C.accent, borderColor: C.accent },
 
-  errorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, height: 22 },
-  errorTxt: { color: C.red, fontSize: 12, fontWeight: "600" },
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2, marginBottom: 8 },
+  errorTxt: { color: C.red, fontSize: 12, fontWeight: "600", flexShrink: 1 },
 
-  pad: { gap: 12, marginTop: 8 },
-  padRow: { flexDirection: "row", gap: 14 },
-  padKey: {
-    width: 74, height: 74, borderRadius: 37,
-    backgroundColor: C.light, alignItems: "center", justifyContent: "center",
+  submitBtn: {
+    backgroundColor: C.accent, borderRadius: 12, paddingVertical: 14, alignItems: "center",
+    marginTop: 6,
+    shadowColor: C.accent, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  padKeyDel: { backgroundColor: C.card },
-  padKeyTxt: { color: C.navy, fontSize: 26, fontWeight: "600" },
-
-  loadRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
-  loadTxt: { color: C.muted, fontSize: 13 },
+  submitTxt: { color: C.white, fontSize: 16, fontWeight: "700" },
 });
