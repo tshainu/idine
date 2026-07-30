@@ -11,10 +11,10 @@ import { ShoppingCart, Plus, Minus, X, ChevronRight, Check, UtensilsCrossed, Sea
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
-const BORD = "#2D1B4E";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
-const TEXT = "#F3F4F6";
+const BORD = "var(--color-border)";
+const MUTED = "var(--color-text-muted)";
+const DIM = "var(--color-text-dim)";
+const TEXT = "var(--color-text)";
 
 type CartItem = {
   menuItemId: number;

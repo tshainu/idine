@@ -9,10 +9,10 @@ import {
 export const GOLD = "var(--color-gold)";
 export const BG   = "var(--color-bg)";
 export const SURF = "var(--color-surface)";
-export const BORD = "#2D1B4E";
-export const MUTED = "#9CA3AF";
-export const DIM  = "#6B7280";
-export const TEXT = "#F3F4F6";
+export const BORD = "var(--color-border)";
+export const MUTED = "var(--color-text-muted)";
+export const DIM  = "var(--color-text-dim)";
+export const TEXT = "var(--color-text)";
 
 const SUB_REPORTS = [
   { path: "/reports/sales",     label: "Sales Performance",  icon: TrendingUp },

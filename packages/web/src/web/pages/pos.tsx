@@ -552,7 +552,7 @@ function FinalizeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
       <div className="rounded-xl border shadow-2xl overflow-hidden flex flex-col"
-        style={{ background: SURF, borderColor: BORD, width: "min(1040px, 96vw)", maxHeight: "94vh" }}>
+        style={{ background: SURF, borderColor: BORD, width: "min(1100px, 96vw)", height: "min(760px, 94vh)" }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORD }}>
@@ -564,11 +564,11 @@ function FinalizeModal({
         <div className="flex flex-1 overflow-hidden min-h-0">
 
           {/* Left — payment method sidebar */}
-          <div className="w-44 border-r flex flex-col shrink-0" style={{ borderColor: BORD, background: BG }}>
+          <div className="w-52 border-r flex flex-col shrink-0" style={{ borderColor: BORD, background: BG }}>
             {PAYMENT_METHODS.map(m => (
               <button key={m}
                 onClick={() => { setActiveMethod(m); setAmount(""); setGivenAmount(""); setRefNote(""); }}
-                className="px-4 py-3.5 text-left text-sm border-b transition-colors"
+                className="px-4 py-4 text-left text-sm border-b transition-colors"
                 style={{
                   borderColor: BORD,
                   background: activeMethod === m ? PURPLE : "transparent",
@@ -590,32 +590,32 @@ function FinalizeModal({
             <div className="grid gap-2" style={{ gridTemplateColumns: cfg.showGiven ? "1fr 1fr 1fr auto" : cfg.refLabel ? "1fr 1fr auto" : "1fr auto" }}>
               {cfg.showGiven && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: MUTED }}>Given Amount</label>
+                  <label className="text-base" style={{ color: MUTED }}>Given Amount</label>
                   <input value={givenAmount} onChange={e => setGivenAmount(e.target.value)}
                     placeholder="0.00" type="number" min="0"
-                    className="border rounded px-2 py-1.5 text-xs outline-none"
+                    className="border rounded px-2 py-2.5 text-base outline-none"
                     style={{ borderColor: BORD, background: BG, color: TEXT }} />
                 </div>
               )}
               {cfg.refLabel && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: MUTED }}>{cfg.refLabel}</label>
+                  <label className="text-base" style={{ color: MUTED }}>{cfg.refLabel}</label>
                   <input value={refNote} onChange={e => setRefNote(e.target.value)}
                     placeholder={cfg.refPlaceholder}
-                    className="border rounded px-2 py-1.5 text-xs outline-none"
+                    className="border rounded px-2 py-2.5 text-base outline-none"
                     style={{ borderColor: BORD, background: BG, color: TEXT }} />
                 </div>
               )}
               <div className="flex flex-col gap-1">
-                <label className="text-xs" style={{ color: MUTED }}>{cfg.amountLabel}</label>
+                <label className="text-base" style={{ color: MUTED }}>{cfg.amountLabel}</label>
                 <input value={amount} onChange={e => setAmount(e.target.value)}
                   placeholder="0.00" type="number" min="0"
-                  className="border rounded px-2 py-1.5 text-xs outline-none"
+                  className="border rounded px-2 py-2.5 text-base outline-none"
                   style={{ borderColor: BORD, background: BG, color: TEXT }} />
               </div>
               <div className="flex flex-col justify-end">
                 <button onClick={handleAddPayment}
-                  className="px-4 py-1.5 rounded text-xs font-semibold"
+                  className="px-4 py-2.5 rounded text-base font-semibold"
                   style={{ background: PURPLE, color: "#fff" }}>
                   Add
                 </button>
@@ -624,7 +624,7 @@ function FinalizeModal({
 
             {/* Change for cash */}
             {activeMethod === "Cash" && (parseFloat(givenAmount) || 0) > 0 && (
-              <div className="text-xs px-3 py-2 rounded border" style={{ borderColor: BORD, background: BG }}>
+              <div className="text-base px-3 py-2 rounded border" style={{ borderColor: BORD, background: BG }}>
                 <span style={{ color: MUTED }}>Change: </span>
                 <span className="font-bold font-mono" style={{ color: "var(--color-success)" }}>LKR {change.toFixed(2)}</span>
               </div>
@@ -634,20 +634,20 @@ function FinalizeModal({
             <div className="flex gap-3">
 
               {/* Payments list */}
-              <div className="flex-1 rounded border min-h-[120px]"
+              <div className="flex-1 rounded border min-h-[160px]"
                 style={{ borderColor: BORD }}>
                 {payments.length === 0 ? (
-                  <div className="flex items-center justify-center h-full min-h-[120px] text-xs" style={{ color: DIM }}>
+                  <div className="flex items-center justify-center h-full min-h-[160px] text-base" style={{ color: DIM }}>
                     Your added payments will be shown here
                   </div>
                 ) : (
                   <div className="w-full">
                     {payments.map((p, i) => (
-                      <div key={i} className="flex justify-between items-center px-3 py-2 border-b text-xs"
+                      <div key={i} className="flex justify-between items-center px-3 py-2 border-b text-base"
                         style={{ borderColor: BORD }}>
                         <div>
                           <span style={{ color: TEXT }}>{p.method}</span>
-                          {p.ref && <span className="ml-2 text-xs" style={{ color: DIM }}>#{p.ref}</span>}
+                          {p.ref && <span className="ml-2 text-base" style={{ color: DIM }}>#{p.ref}</span>}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-bold" style={{ color: GOLD }}>{p.amount.toFixed(2)}</span>
@@ -661,22 +661,22 @@ function FinalizeModal({
               </div>
 
               {/* Right controls */}
-              <div className="flex flex-col gap-2 w-36 shrink-0">
+              <div className="flex flex-col gap-2 w-44 shrink-0">
 
                 {/* Discount */}
                 <div className="flex gap-1">
                   <input value={discountInput} onChange={e => setDiscountInput(e.target.value)}
                     placeholder="Discount" type="number" min="0"
-                    className="flex-1 border rounded px-2 py-1.5 text-xs outline-none w-0"
+                    className="flex-1 border rounded px-2 py-2.5 text-base outline-none w-0"
                     style={{ borderColor: BORD, background: BG, color: TEXT }}
                     onKeyDown={e => e.key === "Enter" && handleDiscount()} />
                   <button onClick={handleDiscount}
-                    className="px-2 py-1.5 rounded text-xs font-semibold"
+                    className="px-2 py-2.5 rounded text-base font-semibold"
                     style={{ background: BORD, color: MUTED }}>✓</button>
                 </div>
 
                 {/* Totals */}
-                <div className="rounded border p-2 space-y-1 text-xs" style={{ borderColor: BORD, background: BG }}>
+                <div className="rounded border p-2 space-y-1 text-base" style={{ borderColor: BORD, background: BG }}>
                   <div className="flex justify-between">
                     <span style={{ color: MUTED }}>Payable</span>
                     <span className="font-bold font-mono" style={{ color: TEXT }}>LKR{payable.toFixed(2)}</span>
@@ -703,15 +703,20 @@ function FinalizeModal({
                 <div className="grid grid-cols-2 gap-1">
                   {QUICK_AMOUNTS.map(v => (
                     <button key={v} onClick={() => addQuickAmount(v)}
-                      className="py-1.5 rounded text-xs font-mono font-semibold border"
+                      className="py-2.5 rounded text-base font-mono font-semibold border"
                       style={{ borderColor: BORD, background: BORD, color: TEXT }}>
                       {v}
                     </button>
                   ))}
+                  <button onClick={() => setAmount(due > 0 ? due.toFixed(2) : payable.toFixed(2))}
+                    className="col-span-2 py-2.5 rounded text-base font-semibold border"
+                    style={{ borderColor: GOLD, background: `${GOLD}22`, color: GOLD }}>
+                    Bill Amount
+                  </button>
                 </div>
 
                 {/* Send SMS */}
-                <div className="flex items-center gap-1.5 text-xs" style={{ color: MUTED }}>
+                <div className="flex items-center gap-1.5 text-base" style={{ color: MUTED }}>
                   <input type="checkbox" id="sms-chk" checked={sendSMS}
                     onChange={e => setSendSMS(e.target.checked)} />
                   <label htmlFor="sms-chk" className="cursor-pointer">Send SMS</label>
@@ -719,18 +724,18 @@ function FinalizeModal({
                 {sendSMS && (
                   <input value={phone} onChange={e => setPhone(e.target.value)}
                     placeholder="Phone number"
-                    className="border rounded px-2 py-1.5 text-xs outline-none"
+                    className="border rounded px-2 py-2.5 text-base outline-none"
                     style={{ borderColor: BORD, background: BG, color: TEXT }} />
                 )}
 
                 {/* Cart details + Clear */}
                 <button onClick={() => setShowCartDetails(v => !v)}
-                  className="py-1.5 rounded border text-xs font-medium"
+                  className="py-2.5 rounded border text-base font-medium"
                   style={{ borderColor: BORD, background: BORD, color: TEXT }}>
                   {showCartDetails ? "Hide Details" : "Cart Details"}
                 </button>
                 <button onClick={handleClear}
-                  className="py-1.5 rounded border text-xs font-medium"
+                  className="py-2.5 rounded border text-base font-medium"
                   style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)", background: "transparent" }}>
                   Clear
                 </button>
@@ -740,30 +745,30 @@ function FinalizeModal({
             {/* Cart details */}
             {showCartDetails && (
               <div className="rounded border overflow-hidden" style={{ borderColor: BORD }}>
-                <div className="px-3 py-2 text-xs font-semibold border-b" style={{ borderColor: BORD, color: TEXT, background: BG }}>
+                <div className="px-3 py-2 text-base font-semibold border-b" style={{ borderColor: BORD, color: TEXT, background: BG }}>
                   Order #{order.orderNumber} — Cart
                 </div>
-                <table className="w-full text-xs">
+                <table className="w-full text-base">
                   <thead>
                     <tr className="border-b" style={{ borderColor: BORD, background: BG }}>
-                      <th className="text-left px-3 py-1.5" style={{ color: DIM }}>Item</th>
-                      <th className="text-center px-3 py-1.5" style={{ color: DIM }}>Qty</th>
-                      <th className="text-right px-3 py-1.5" style={{ color: DIM }}>Total</th>
+                      <th className="text-left px-3 py-2.5" style={{ color: DIM }}>Item</th>
+                      <th className="text-center px-3 py-2.5" style={{ color: DIM }}>Qty</th>
+                      <th className="text-right px-3 py-2.5" style={{ color: DIM }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((item: any, idx: number) => (
                       <tr key={idx} className="border-t" style={{ borderColor: BORD }}>
-                        <td className="px-3 py-1.5" style={{ color: TEXT }}>{item.name}</td>
-                        <td className="px-3 py-1.5 text-center" style={{ color: MUTED }}>{item.qty}</td>
-                        <td className="px-3 py-1.5 text-right font-mono" style={{ color: GOLD }}>
+                        <td className="px-3 py-2.5" style={{ color: TEXT }}>{item.name}</td>
+                        <td className="px-3 py-2.5 text-center" style={{ color: MUTED }}>{item.qty}</td>
+                        <td className="px-3 py-2.5 text-right font-mono" style={{ color: GOLD }}>
                           {(item.total ?? item.qty * item.price).toFixed(2)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <div className="px-3 py-2 border-t text-xs space-y-0.5" style={{ borderColor: BORD, background: BG }}>
+                <div className="px-3 py-2 border-t text-base space-y-0.5" style={{ borderColor: BORD, background: BG }}>
                   <div className="flex justify-between">
                     <span style={{ color: MUTED }}>Sub Total</span>
                     <span style={{ color: TEXT }}>{subtotal.toFixed(2)}</span>
@@ -848,7 +853,7 @@ function ReceiptHeader({ settings, label }: { settings: Record<string, string>; 
   if (headerImg) {
     return (
       <div style={{ textAlign: "center", marginBottom: 12 }}>
-        <img src={headerImg} alt="Header" style={{ maxWidth: "100%", maxHeight: 90, objectFit: "contain" }} />
+        <img src={headerImg} alt="Header" style={{ maxWidth: "100%", maxHeight: 90, objectFit: "contain", display: "block", margin: "0 auto" }} />
         <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#333" }}>{label}</div>
       </div>
     );
@@ -934,6 +939,13 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   {/* Restaurant header */}
                   <ReceiptHeader settings={settings} label={label} />
 
+                  {/* Order type — big & centered, right under the Bill/Invoice label */}
+                  <div style={{ textAlign: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", color: "#000" }}>
+                      {order.type === "dine-in" ? "DINE IN" : order.type === "takeaway" ? "TAKEAWAY" : order.type === "delivery" ? "DELIVERY" : order.type}
+                    </span>
+                  </div>
+
                   {/* Divider */}
                   <div style={{ borderTop: "1px dashed #bbb", margin: "10px 0" }} />
 
@@ -943,7 +955,6 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                     <span>{dateStr}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
-                    <span>Type: <strong style={{ color: "#111", textTransform: "capitalize" }}>{order.type?.replace("-", " ")}</strong></span>
                     <span>{timeStr}</span>
                   </div>
                   {order.customerName && order.customerName !== "Walk-in Customer" && (
@@ -1577,7 +1588,7 @@ export default function POSPage() {
   const FILTER_PILLS = [
     { key: "online", label: "Online",     color: "var(--color-success)" },
     { key: "veg",    label: "Vegetarian", color: "var(--color-success)" },
-    { key: "bev",    label: "Beverage",   color: "#6B7280" },
+    { key: "bev",    label: "Beverage",   color: "var(--color-text-dim)" },
     { key: "combo",  label: "Combo",      color: "var(--color-gold)" },
     { key: "promo",  label: "Promo",      color: "var(--color-pink)" },
   ];

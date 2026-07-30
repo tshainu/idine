@@ -8,10 +8,10 @@ import { Utensils, Package, Coffee, ShoppingCart } from "lucide-react";
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
-const BORD = "#2D1B4E";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
-const TEXT = "#F3F4F6";
+const BORD = "var(--color-border)";
+const MUTED = "var(--color-text-muted)";
+const DIM = "var(--color-text-dim)";
+const TEXT = "var(--color-text)";
 
 function StatCard({ label, value, sub, imgSrc }: { label: string; value: string | number; sub?: string; imgSrc: string }) {
   return (
@@ -208,7 +208,7 @@ export default function HomePage() {
                     </div>
                     <div className="w-full rounded-t-sm transition-all" style={{
                       height: `${Math.max((d.rev / maxRev) * 96, 2)}px`,
-                      background: d.day === todayDate ? GOLD : d.day > todayDate ? BORD + "55" : "#2D1B4E",
+                      background: d.day === todayDate ? GOLD : d.day > todayDate ? BORD + "55" : "var(--color-surface-2)",
                     }} />
                     <div className="text-[8px] leading-none" style={{ color: d.day === todayDate ? GOLD : MUTED }}>{d.day}</div>
                   </div>

@@ -8,10 +8,10 @@ import { Plus, Trash2, Shield, User, Pencil, KeyRound, ShieldCheck } from "lucid
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
-const BORD = "#2D1B4E";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
-const TEXT = "#F3F4F6";
+const BORD = "var(--color-border)";
+const MUTED = "var(--color-text-muted)";
+const DIM = "var(--color-text-dim)";
+const TEXT = "var(--color-text)";
 const PURPLE = "var(--color-purple)";
 const ROLE_COLOR: Record<string, string> = { superadmin: "var(--color-purple-light)", admin: GOLD, manager: "#F97316", waiter: "var(--color-success)", cashier: "var(--color-info)" };
 

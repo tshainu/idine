@@ -195,7 +195,7 @@ export default function InvoicePrint() {
           ) : (
             <div style={{ textAlign: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 2, color: "#000" }}>
-                {(branch?.name || "RESTAURANT").toUpperCase()}
+                {(settings.restaurantName || branch?.name || "RESTAURANT").toUpperCase()}
               </div>
               {branch?.address && (
                 <div style={{ fontSize: 10, color: "#555", marginTop: 3, lineHeight: 1.5 }}>
@@ -223,6 +223,16 @@ export default function InvoicePrint() {
             </span>
           </div>
 
+          {/* Order type — big & centered, right under the Bill/Invoice label */}
+          <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <span style={{
+              fontSize: 16, fontWeight: 900, letterSpacing: 1.5,
+              textTransform: "uppercase", color: "#000",
+            }}>
+              {typeLabel[order.type] || order.type}
+            </span>
+          </div>
+
           <Divider />
 
           {/* Order meta */}
@@ -234,10 +244,6 @@ export default function InvoicePrint() {
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "#555" }}>Date</span>
               <span>{formatDate(order.createdAt)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "#555" }}>Type</span>
-              <span style={{ fontWeight: 700 }}>{typeLabel[order.type] || order.type}</span>
             </div>
             {order.tableId && (
               <div style={{ display: "flex", justifyContent: "space-between" }}>

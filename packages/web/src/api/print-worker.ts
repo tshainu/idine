@@ -31,6 +31,7 @@ function align(a: "left" | "center" | "right"): Buffer {
 function feed(lines = 1): Buffer { return Buffer.from([ESC, 0x64, lines]); }
 function text(str: string): Buffer { return Buffer.from(str + "\n", "utf8"); }
 function divider(char = "-", width = 42): Buffer { return text(char.repeat(width)); }
+function doubleSize(on: boolean): Buffer { return Buffer.from([GS, 0x21, on ? 0x11 : 0x00]); } // double width+height
 
 // ── ESC/POS document builders ───────────────────────────────────────────────
 
@@ -46,13 +47,22 @@ function buildKOT(job: any): Buffer {
   parts.push(divider());
 
   const orderNum = payload.orderNumber || `ORD-${String(job.orderId).padStart(4, "0")}`;
-  const orderType = (payload.type || "dine-in").toUpperCase();
+  const orderTypeLabel = payload.type === "dine-in" ? "DINE IN" : payload.type === "takeaway" ? "TAKEAWAY" : payload.type === "delivery" ? "DELIVERY" : (payload.type || "DINE-IN").toUpperCase();
   const tableInfo = payload.tableName ? `Table: ${payload.tableName}` : "";
   const waiter = payload.waiterName ? `Waiter: ${payload.waiterName}` : "";
 
+  // Order type — big & centered, directly under the KOT title
+  parts.push(align("center"));
+  parts.push(doubleSize(true));
+  parts.push(bold(true));
+  parts.push(text(orderTypeLabel));
+  parts.push(bold(false));
+  parts.push(doubleSize(false));
+  parts.push(divider());
+
   parts.push(align("left"));
   parts.push(bold(true));
-  parts.push(text(`Order: ${orderNum}  [${orderType}]`));
+  parts.push(text(`Order: ${orderNum}`));
   parts.push(bold(false));
   if (tableInfo) parts.push(text(tableInfo));
   if (waiter) parts.push(text(waiter));
@@ -97,6 +107,18 @@ function buildBill(job: any): Buffer {
   if (payload.address) parts.push(text(payload.address));
   if (payload.phone) parts.push(text(`Tel: ${payload.phone}`));
   parts.push(divider("="));
+
+  // Order type — big & centered, right under the header
+  const billTypeLabel = payload.type === "dine-in" ? "DINE IN" : payload.type === "takeaway" ? "TAKEAWAY" : payload.type === "delivery" ? "DELIVERY" : null;
+  if (billTypeLabel) {
+    parts.push(align("center"));
+    parts.push(doubleSize(true));
+    parts.push(bold(true));
+    parts.push(text(billTypeLabel));
+    parts.push(bold(false));
+    parts.push(doubleSize(false));
+    parts.push(divider());
+  }
 
   parts.push(align("left"));
   const orderNum = payload.orderNumber || `ORD-${String(job.orderId).padStart(4, "0")}`;

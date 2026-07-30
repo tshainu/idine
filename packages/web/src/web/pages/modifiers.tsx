@@ -7,10 +7,10 @@ import { getBranchId } from "../lib/store";
 
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
-const BORD = "#2D1B4E";
+const BORD = "var(--color-border)";
 const GOLD = "var(--color-gold)";
-const TEXT = "#F3F4F6";
-const MUTED = "#9CA3AF";
+const TEXT = "var(--color-text)";
+const MUTED = "var(--color-text-muted)";
 
 const EMPTY_FORM = { name: "", groupName: "General", price: 0 };
 

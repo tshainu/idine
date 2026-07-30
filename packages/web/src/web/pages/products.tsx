@@ -6,7 +6,7 @@ import { Sidebar } from "../components/layout/sidebar";
 import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, Leaf, Coffee, X, Upload, ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, TrendingUp } from "lucide-react";
 
 function MarginBadge({ salePrice, costPrice }: { salePrice: number; costPrice: number }) {
-  if (!costPrice || costPrice <= 0) return <span style={{ color: "#6B7280", fontSize: 11 }}>—</span>;
+  if (!costPrice || costPrice <= 0) return <span style={{ color: "var(--color-text-dim)", fontSize: 11 }}>—</span>;
   const margin = ((salePrice - costPrice) / salePrice) * 100;
   const color = margin >= 60 ? "var(--color-success)" : margin >= 40 ? "var(--color-gold)" : margin >= 20 ? "#F97316" : "var(--color-danger)";
   return (
@@ -26,19 +26,19 @@ function MarginWidget({ salePrice, marginPct }: { salePrice: number; marginPct: 
   const color = margin >= 60 ? "var(--color-success)" : margin >= 40 ? "var(--color-gold)" : margin >= 20 ? "#F97316" : "var(--color-danger)";
   const barW = margin;
   return (
-    <div className="rounded-xl border p-3 space-y-2" style={{ background: "rgba(255,255,255,0.03)", borderColor: "#2D1B4E" }}>
+    <div className="rounded-xl border p-3 space-y-2" style={{ background: "var(--color-surface-2)", borderColor: "var(--color-border)" }}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "#9CA3AF" }}>
+        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-text-muted)" }}>
           <TrendingUp size={12} /> Profit Margin
         </span>
         <span className="text-sm font-bold" style={{ color }}>{margin > 0 ? `${margin.toFixed(1)}%` : "Enter margin %"}</span>
       </div>
       {margin > 0 && (
         <>
-          <div className="w-full rounded-full h-1.5" style={{ background: "#2D1B4E" }}>
+          <div className="w-full rounded-full h-1.5" style={{ background: "var(--color-border)" }}>
             <div className="h-1.5 rounded-full transition-all" style={{ width: `${barW}%`, background: color }} />
           </div>
-          <div className="flex justify-between text-xs" style={{ color: "#6B7280" }}>
+          <div className="flex justify-between text-xs" style={{ color: "var(--color-text-dim)" }}>
             <span>Cost: <span style={{ color: "var(--color-danger)", fontWeight: 600 }}>LKR {cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
             <span>Profit: <span style={{ color, fontWeight: 600 }}>LKR {profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
           </div>
@@ -51,10 +51,10 @@ function MarginWidget({ salePrice, marginPct }: { salePrice: number; marginPct: 
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
 const SURF = "var(--color-surface)";
-const BORD = "#2D1B4E";
-const MUTED = "#9CA3AF";
-const DIM = "#6B7280";
-const TEXT = "#F3F4F6";
+const BORD = "var(--color-border)";
+const MUTED = "var(--color-text-muted)";
+const DIM = "var(--color-text-dim)";
+const TEXT = "var(--color-text)";
 const PURPLE = "var(--color-purple)";
 
 const inputCls = "w-full px-3 py-2 text-sm rounded-lg border outline-none";

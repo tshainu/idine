@@ -101,8 +101,11 @@ export function Sidebar() {
     staleTime: 60_000,
   });
 
-  const branchName: string = (branchData as any)?.branch?.name || "iDine";
-  const outletLogo: string | undefined = (settingsData as any)?.settings?.outletLogo;
+  const settingsMap: Record<string, string> = (settingsData as any)?.settings || {};
+  // "Restaurant Name" in General Settings saves to settings.restaurantName — prefer that
+  // over the branch record's name so renaming in Settings reflects immediately here.
+  const branchName: string = settingsMap.restaurantName || (branchData as any)?.branch?.name || "iDine";
+  const outletLogo: string | undefined = settingsMap.outletLogo || settingsMap.invoiceLogo;
 
   function toggle(id: string) {
     setOpen(prev => ({ ...prev, [id]: !prev[id] }));
