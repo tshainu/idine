@@ -870,6 +870,53 @@ function LoyaltyWallet({ onBack }: { onBack: () => void }) {
   );
 }
 
+function Integrations({ onBack }: { onBack: () => void }) {
+  const branchId = getBranchId();
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings", branchId],
+    queryFn: async () => (await api.settings.$get({ query: { branchId: String(branchId) } })).json(),
+  });
+  useEffect(() => {
+    const r = (settingsData as any)?.settings as Record<string, string> | undefined;
+    if (r?.openaiApiKey) setApiKey(r.openaiApiKey);
+  }, [settingsData]);
+
+  const save = useMutation({
+    mutationFn: async () => (await api.settings.$post({ json: { branchId, settings: { openaiApiKey: apiKey.trim() } } })).json(),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["settings", branchId] }); setSaved(true); setTimeout(() => { setSaved(false); onBack(); }, 1200); },
+  });
+
+  return (
+    <div className="max-w-xl mx-auto">
+      <div className="rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
+        <div className="px-6 py-5 border-b" style={{ borderColor: BORD }}>
+          <h2 className="text-xl font-bold" style={{ color: TEXT }}>Integrations</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          <Field label="OpenAI API Key" help="Used to extract menu items & prices from an uploaded menu card photo (Products -> Upload Item -> Menu Card Image).">
+            <div className="flex gap-2">
+              <Input type={showKey ? "text" : "password"} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+              <button type="button" onClick={() => setShowKey(v => !v)}
+                className="px-3 py-2 rounded-lg text-xs shrink-0" style={{ background: BORD, color: MUTED }}>
+                {showKey ? "Hide" : "Show"}
+              </button>
+            </div>
+          </Field>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="px-6 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ background: saved ? "var(--color-success)" : PURPLE, color: "#fff" }}>{saved ? "Saved!" : save.isPending ? "Saving..." : "Save"}</button>
+            <button onClick={onBack} className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ background: PURPLE + "99", color: "#fff" }}>Back</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const DEFAULTS = {
   restaurantName: "Delizz Restaurant",
   restaurantShortName: "DR",
@@ -990,6 +1037,12 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto p-6"><DeliveryPartners onBack={() => setSubPage(null)} /></div>
     </div>
   );
+  if (subPage === "integrations") return (
+    <div className="flex h-screen overflow-hidden" style={{ background: BG }}>
+      <Sidebar />
+      <div className="flex-1 overflow-y-auto p-6"><Integrations onBack={() => setSubPage(null)} /></div>
+    </div>
+  );
   if (subPage === "loyalty") return (
     <div className="flex h-screen overflow-hidden" style={{ background: BG }}>
       <Sidebar />
@@ -1022,6 +1075,7 @@ export default function SettingsPage() {
             { key: "printers", label: "Printer Setup" },
             { key: "delivery", label: "Delivery Partners" },
             { key: "loyalty", label: "Loyalty & Wallet" },
+            { key: "integrations", label: "Integrations" },
           ].map(link => (
             <button
               key={link.key}

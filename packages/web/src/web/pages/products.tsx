@@ -761,7 +761,9 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
   branchId: number; categories: any[]; onClose: () => void; onImported: () => void;
 }) {
   const [tab, setTab] = useState<"excel" | "image">("excel");
-  const [parsedItems, setParsedItems] = useState<{ name: string; price: number; costPrice: number; categoryId?: number }[]>([]);
+  type ParsedVariation = { name: string; price: number };
+  type ParsedItem = { name: string; price: number; costPrice: number; categoryId?: number; categoryName?: string; variations?: ParsedVariation[] };
+  const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
@@ -788,11 +790,11 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
       const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(ws);
-      const items = rows.map(r => {
+      const items: ParsedItem[] = rows.map(r => {
         const price = Number(r.priceDineIn ?? r.price ?? 0);
         const cost = r.costPrice != null && r.costPrice !== "" ? Number(r.costPrice) : price * (1 - DEFAULT_MARGIN_PCT / 100);
         const cat = categories.find((c: any) => c.name?.toLowerCase() === String(r.category || "").toLowerCase());
-        return { name: String(r.name || "").trim(), price, costPrice: cost, categoryId: cat?.id };
+        return { name: String(r.name || "").trim(), price, costPrice: cost, categoryId: cat?.id, categoryName: r.category ? String(r.category).trim() : undefined };
       }).filter(r => r.name && r.price > 0);
       if (items.length === 0) setError("No valid rows found. Make sure the file matches the template columns.");
       setParsedItems(items);
@@ -808,14 +810,30 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/menu-extract", { method: "POST", body: fd });
+      const res = await fetch(`/api/menu-extract?branchId=${branchId}`, { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) { setError((data as any)?.error || "Extraction failed"); return; }
-      const items = ((data as any).items || []).map((i: any) => ({
-        name: i.name,
-        price: Number(i.price),
-        costPrice: Number(i.price) * (1 - DEFAULT_MARGIN_PCT / 100),
-      }));
+      const items: ParsedItem[] = ((data as any).items || []).map((i: any) => {
+        const cat = categories.find((c: any) => c.name?.toLowerCase() === String(i.category || "").toLowerCase());
+        if (Array.isArray(i.variations) && i.variations.length > 0) {
+          const firstPrice = Number(i.variations[0]?.price || 0);
+          return {
+            name: i.name,
+            price: firstPrice,
+            costPrice: firstPrice * (1 - DEFAULT_MARGIN_PCT / 100),
+            categoryId: cat?.id,
+            categoryName: i.category,
+            variations: i.variations.map((v: any) => ({ name: v.name, price: Number(v.price) })),
+          };
+        }
+        return {
+          name: i.name,
+          price: Number(i.price),
+          costPrice: Number(i.price) * (1 - DEFAULT_MARGIN_PCT / 100),
+          categoryId: cat?.id,
+          categoryName: i.category,
+        };
+      });
       if (items.length === 0) setError("No items detected in this image.");
       setParsedItems(items);
     } catch {
@@ -829,11 +847,26 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
     setParsedItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
   }
 
+  async function resolveCategoryId(name: string | undefined, cache: Map<string, number>): Promise<number | undefined> {
+    if (!name) return undefined;
+    const key = name.toLowerCase();
+    if (cache.has(key)) return cache.get(key);
+    const existing = categories.find((c: any) => c.name?.toLowerCase() === key);
+    if (existing) { cache.set(key, existing.id); return existing.id; }
+    const res = await api.categories.$post({ json: { branchId, name, isActive: true } as any });
+    const created = await res.json() as any;
+    const id = created?.category?.id;
+    if (id) cache.set(key, id);
+    return id;
+  }
+
   async function importAll() {
     setImporting(true);
+    const catCache = new Map<string, number>();
     try {
       for (const item of parsedItems) {
-        await api["menu-items"].$post({
+        const categoryId = item.categoryId ?? await resolveCategoryId(item.categoryName, catCache);
+        const created = await api["menu-items"].$post({
           json: {
             branchId,
             name: item.name,
@@ -842,10 +875,28 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
             priceTakeaway: item.price,
             priceDelivery: item.price,
             costPrice: item.costPrice,
-            categoryId: item.categoryId,
+            categoryId,
             isActive: true,
           } as any,
         });
+        if (item.variations && item.variations.length > 0) {
+          const createdItem = await created.json() as any;
+          const menuItemId = createdItem?.menuItem?.id;
+          if (menuItemId) {
+            for (const v of item.variations) {
+              await api.variations.$post({
+                json: {
+                  menuItemId,
+                  name: v.name,
+                  priceDineIn: v.price,
+                  priceTakeaway: v.price,
+                  priceDelivery: v.price,
+                  isActive: true,
+                } as any,
+              });
+            }
+          }
+        }
       }
       onImported();
     } finally {
@@ -924,8 +975,9 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
               <table className="w-full text-xs">
                 <thead>
                   <tr style={{ background: BG }}>
+                    <th className="text-left px-3 py-2" style={{ color: DIM }}>Category</th>
                     <th className="text-left px-3 py-2" style={{ color: DIM }}>Name</th>
-                    <th className="text-right px-3 py-2" style={{ color: DIM }}>Price</th>
+                    <th className="text-right px-3 py-2" style={{ color: DIM }}>Price / Variations</th>
                     <th className="text-right px-3 py-2" style={{ color: DIM }}>Cost (edit)</th>
                     <th className="text-right px-3 py-2" style={{ color: DIM }}>Margin</th>
                   </tr>
@@ -933,10 +985,19 @@ function UploadItemModal({ branchId, categories, onClose, onImported }: {
                 <tbody>
                   {parsedItems.map((it, i) => (
                     <tr key={i} className="border-t" style={{ borderColor: BORD }}>
+                      <td className="px-3 py-1.5" style={{ color: DIM }}>{it.categoryName || "—"}</td>
                       <td className="px-3 py-1.5" style={{ color: TEXT }}>{it.name}</td>
                       <td className="px-3 py-1.5 text-right">
-                        <input type="number" value={it.price} onChange={e => updateParsed(i, "price", Number(e.target.value))}
-                          className="w-20 text-right rounded px-1.5 py-0.5 border outline-none" style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                        {it.variations && it.variations.length > 0 ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            {it.variations.map((v, vi) => (
+                              <span key={vi} style={{ color: TEXT }}>{v.name}: {v.price.toFixed(2)}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <input type="number" value={it.price} onChange={e => updateParsed(i, "price", Number(e.target.value))}
+                            className="w-20 text-right rounded px-1.5 py-0.5 border outline-none" style={{ borderColor: BORD, background: BG, color: TEXT }} />
+                        )}
                       </td>
                       <td className="px-3 py-1.5 text-right">
                         <input type="number" value={it.costPrice.toFixed(2)} onChange={e => updateParsed(i, "costPrice", Number(e.target.value))}
