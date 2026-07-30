@@ -16,6 +16,7 @@ export const users = new Hono()
   .post("/", async (c) => {
     const body = await c.req.json();
     if (body.password) body.password = await Bun.password.hash(body.password);
+    if (!body.pin) body.pin = "0000"; // legacy column still NOT NULL on older DBs; unused by new auth flow
     const [user] = await db.insert(schema.users).values(body).returning();
     const { password: _pw, ...safe } = user;
     return c.json({ user: safe }, 201);

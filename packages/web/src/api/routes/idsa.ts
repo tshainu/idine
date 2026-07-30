@@ -85,6 +85,7 @@ export const idsa = new Hono()
     await db.insert(schema.users).values({
       branchId: branch.id,
       name: `${businessName} Admin`,
+      pin: "0000",
       userId,
       username: "admin",
       password: hash,
