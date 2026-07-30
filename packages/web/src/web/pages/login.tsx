@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { setUser } from "../lib/store";
+import { setUser, setBranchId } from "../lib/store";
 
 export default function Login() {
   const [userId, setUserId] = useState("");
@@ -25,6 +25,9 @@ export default function Login() {
     onSuccess: (data) => {
       const user = data?.user ?? data;
       setUser(user);
+      // Scope this session to the logged-in user's own business/branch —
+      // without this every business would see branch 1's (demo) data.
+      if (user?.branchId) setBranchId(user.branchId);
       const role = user?.role;
       if (role === "kitchen" || role === "kds") navigate("/kds");
       else navigate("/home");
