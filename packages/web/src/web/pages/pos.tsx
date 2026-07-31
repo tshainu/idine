@@ -83,7 +83,7 @@ function Btn({ icon: Icon, label, onClick, danger }: {
 function Toast({ msg, onDone }: { msg: string; onDone: () => void }) {
   useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
   return (
-    <div className="ml-3 px-3 py-1 rounded-lg text-xs font-semibold animate-fade-up"
+    <div className="px-3 py-1 rounded-lg text-xs font-semibold animate-fade-up"
       style={{ background: GOLD, color: "var(--color-surface)", whiteSpace: "nowrap" }}>
       {msg}
     </div>
@@ -1166,7 +1166,8 @@ function KotOverlay({ kot, onClose, onPrinted }: { kot: any; onClose: () => void
             {kot.items.map((it: any, i: number) => (
               <div key={i} style={{ marginBottom: 7, paddingBottom: 5, borderBottom: "1px dashed #000" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 900, color: "#000" }}>
-                  <span>{it.qty}x {it.name}</span>
+                  <span>{it.cancelled ? `-${it.qty} ${it.name}` : `${it.qty}x ${it.name}`}</span>
+                  {it.cancelled && <span style={{ fontSize: 11, fontWeight: 900, border: "1px solid #000", padding: "0 6px" }}>CANCEL</span>}
                 </div>
                 {it.modifiers?.length > 0 && it.modifiers.map((m: string, j: number) => (
                   <div key={j} style={{ fontSize: 12, fontWeight: 800, color: "#000", paddingLeft: 12 }}>+ {m}</div>
@@ -1241,6 +1242,8 @@ export default function POSPage() {
   const [finalizeIsQuick,    setFinalizeIsQuick]    = useState(false);
   const [cancelConfirmId,    setCancelConfirmId]    = useState<number | null>(null);
   const [modifyOrderId,      setModifyOrderId]      = useState<number | null>(null);
+  const [modifyOriginalItems, setModifyOriginalItems] = useState<{ menuItemId: number | null; name: string; qty: number }[]>([]);
+  const [pendingKotChoice,   setPendingKotChoice]   = useState<any | null>(null);
   // Print KOT preview — auto-print is suspended; this sits here until the user opens the print dialog
   const [pendingKot,         setPendingKot]         = useState<any | null>(null);
 
@@ -1255,6 +1258,11 @@ export default function POSPage() {
     queryFn: async () => (await api.orders.$get({ query: { branchId: String(branchId) } })).json(),
     refetchInterval: 10000,
   });
+  // Loaded so the running-orders search can also match a customer's mobile number
+  const { data: allCustomersData } = useQuery({
+    queryKey: ["all-customers", branchId],
+    queryFn: async () => (await api.customers.$get({ query: { branchId: String(branchId) } })).json(),
+  });
   const { data: categoriesData } = useQuery({
     queryKey: ["categories", branchId],
     queryFn: async () => (await api.categories.$get({ query: { branchId: String(branchId) } })).json(),
@@ -1266,6 +1274,11 @@ export default function POSPage() {
       if (categoryId) q.categoryId = String(categoryId);
       return (await api["menu-items"].$get({ query: q })).json();
     },
+  });
+  // Best-sellers ranking — used to sort the "All" category tab top-selling first
+  const { data: bestSellersData } = useQuery({
+    queryKey: ["best-sellers", branchId],
+    queryFn: async () => (await api["menu-items"]["best-sellers"].$get({ query: { branchId: String(branchId) } })).json(),
   });
   const { data: tablesData } = useQuery({
     queryKey: ["tables", branchId],
@@ -1314,6 +1327,83 @@ export default function POSPage() {
     mutationFn: async (status: string) => {
       const apiStatus = status === "quick-invoice" ? "confirmed" : status;
       const subtotal = cartItems.reduce((s, i) => s + (i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty), 0);
+
+      // ── Modifying an existing running order — UPDATE it instead of creating a new one ──
+      if (modifyOrderId) {
+        const orderId = modifyOrderId;
+        const existingOrder = (ordersData as any)?.orders?.find((o: any) => o.id === orderId);
+
+        await api.orders[":id"].$patch({
+          param: { id: String(orderId) },
+          json: {
+            type: orderType, status: apiStatus, tableId: selectedTableId,
+            waiterId: selectedWaiterId, customerId, customerName,
+            subtotal, total: subtotal,
+          },
+        });
+
+        // Reconcile order items: drop the old set, insert the current cart as the new set
+        let createdItemIds: number[] = [];
+        try {
+          const oldItemsRes = await (await api["order-items"].$get({ query: { orderId: String(orderId) } })).json() as any;
+          const oldItems: any[] = oldItemsRes?.orderItems || [];
+          await Promise.all(oldItems.map((it: any) => api["order-items"][":id"].$delete({ param: { id: String(it.id) } })));
+          const created = await (await api["order-items"].bulk.$post({
+            json: {
+              items: cartItems.map(i => ({
+                orderId, menuItemId: i.menuItemId, name: i.name, price: i.price,
+                qty: i.qty, printerId: i.printerId,
+                total: i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty,
+                modifiers: i.modifiers.length ? JSON.stringify(i.modifiers.map(m => m.name)) : null,
+              })),
+            },
+          })).json();
+          createdItemIds = ((created as any)?.orderItems || []).map((i: any) => i.id);
+        } catch (e) {
+          console.error("[placeOrder] modify reconcile failed:", e);
+        }
+
+        // Diff original vs current cart to find added / reduced-or-cancelled items
+        const origMap = new Map<string, { name: string; qty: number }>();
+        modifyOriginalItems.forEach(i => {
+          const key = String(i.menuItemId ?? i.name);
+          origMap.set(key, { name: i.name, qty: (origMap.get(key)?.qty || 0) + i.qty });
+        });
+        const newMap = new Map<string, { name: string; qty: number }>();
+        cartItems.forEach(i => {
+          const key = String(i.menuItemId ?? i.name);
+          newMap.set(key, { name: i.name, qty: (newMap.get(key)?.qty || 0) + i.qty });
+        });
+        const addedItems: { name: string; qty: number }[] = [];
+        const reducedItems: { name: string; qty: number }[] = [];
+        new Set([...origMap.keys(), ...newMap.keys()]).forEach(key => {
+          const oldQty = origMap.get(key)?.qty || 0;
+          const newQty = newMap.get(key)?.qty || 0;
+          const name = newMap.get(key)?.name || origMap.get(key)?.name || "";
+          const delta = newQty - oldQty;
+          if (delta > 0) addedItems.push({ name, qty: delta });
+          else if (delta < 0) reducedItems.push({ name, qty: -delta });
+        });
+
+        const kotBase = {
+          orderId, itemIds: createdItemIds,
+          orderNumber: existingOrder?.orderNumber || "",
+          type: orderType, tableId: selectedTableId, waiterName: selectedWaiterName,
+          placedBy: getUser()?.name || null,
+          customerName: customerName !== "Walk-in Customer" ? customerName : null,
+        };
+
+        return {
+          order: { id: orderId }, isModify: true,
+          kotChoice: apiStatus === "draft" ? null : {
+            ...kotBase,
+            allItems: cartItems.map(i => ({ name: i.name, qty: i.qty, modifiers: i.modifiers.map(m => m.name) })),
+            addedItems, reducedItems,
+          },
+        };
+      }
+
+      // ── New order ──
       const now = new Date();
       const mm  = String(now.getMonth() + 1).padStart(2, "0");
       const dd  = String(now.getDate()).padStart(2, "0");
@@ -1376,6 +1466,12 @@ export default function POSPage() {
         // Open Finalize Sale modal immediately; mark as quick so Submit → completed
         setFinalizeIsQuick(true);
         setFinalizeOrderId(newOrderId);
+      }
+      if (res?.isModify) {
+        if (res.kotChoice) setPendingKotChoice(res.kotChoice);
+        resetOrder();
+        showToast(status === "draft" ? "Order saved as draft" : "Order updated.");
+        return;
       }
       if (res?.kotPreview) {
         setPendingKot(res.kotPreview);
@@ -1454,6 +1550,7 @@ export default function POSPage() {
       menuItemId: i.menuItemId, name: i.name, price: i.price, qty: i.qty,
       discount: i.discount ?? 0, printerId: i.printerId ?? null, categoryId: i.categoryId ?? null, modifiers: [],
     })));
+    setModifyOriginalItems((items || []).map((i: any) => ({ menuItemId: i.menuItemId ?? null, name: i.name, qty: i.qty })));
     setModifyOrderId(orderId);
     showToast("Order loaded for editing");
   }, []);
@@ -1462,7 +1559,8 @@ export default function POSPage() {
   function resetOrder() {
     setCartItems([]); setOrderType("dine-in"); setSelectedTableId(null);
     setCustomerName("Walk-in Customer"); setCustomerId(null);
-    setSelectedOrderId(null); setSelectedWaiterId(null); setSelectedWaiterName(null); setModifyOrderId(null);
+    setSelectedOrderId(null); setSelectedWaiterId(null); setSelectedWaiterName(null);
+    setModifyOrderId(null); setModifyOriginalItems([]);
   }
   function showToast(msg: string) { setToast(msg); }
 
@@ -1530,23 +1628,40 @@ export default function POSPage() {
   const orders      = (ordersData as any)?.orders || [];
   const categories  = ((categoriesData as any)?.categories || []).filter((c: any) => c.isActive);
   const allMenuItems = (menuData as any)?.menuItems || [];
-  const menuItems   = allMenuItems.filter((item: any) => {
+  const bestSellerRank = new Map<number, number>(
+    ((bestSellersData as any)?.bestSellers || []).map((b: any, i: number) => [b.menuItemId, i])
+  );
+  const menuItemsFiltered = allMenuItems.filter((item: any) => {
     if (activeFilter === "veg"   && !item.isVeg)      return false;
     if (activeFilter === "bev"   && !item.isBeverage)  return false;
     if (activeFilter === "promo" && !item.isPromo)     return false;
     if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+  // "All" tab (no category selected) — show top-selling items first
+  const menuItems = categoryId === null
+    ? [...menuItemsFiltered].sort((a: any, b: any) => {
+        const ra = bestSellerRank.has(a.id) ? bestSellerRank.get(a.id)! : Infinity;
+        const rb = bestSellerRank.has(b.id) ? bestSellerRank.get(b.id)! : Infinity;
+        return ra - rb;
+      })
+    : menuItemsFiltered;
   const tables      = (tablesData as any)?.tables || [];
   const runningOrders = orders.filter((o: any) =>
     o.status !== "completed" && o.status !== "cancelled" &&
     o.status !== "refunded" && o.status !== "partially_refunded"
   );
-  const filteredOrders = runningOrders.filter((o: any) =>
-    !orderSearch ||
-    o.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) ||
-    o.customerName?.toLowerCase().includes(orderSearch.toLowerCase())
-  );
+  const customersById = new Map(((allCustomersData as any)?.customers || []).map((c: any) => [c.id, c]));
+  const filteredOrders = runningOrders.filter((o: any) => {
+    if (!orderSearch) return true;
+    const q = orderSearch.toLowerCase();
+    const customerPhone = (customersById.get(o.customerId) as any)?.phone || "";
+    return (
+      o.orderNumber?.toLowerCase().includes(q) ||
+      o.customerName?.toLowerCase().includes(q) ||
+      customerPhone.toLowerCase().includes(q)
+    );
+  });
 
   // Modal data
   const modalOrderData  = (orderDetailData as any) ?? {};
@@ -1723,10 +1838,12 @@ export default function POSPage() {
           <img src="/logo-icon.png" alt="iDine" style={{ width: 26, height: 26, borderRadius: 6, objectFit: "contain" }} />
           <span className="text-sm font-bold" style={{ color: GOLD }}>iDine POS</span>
         </div>
-        {/* Toast inline next to title */}
-        {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+        {/* Toast — centered in the bar, between the logo and the filter pills */}
+        <div className="flex-1 flex items-center justify-center min-w-0">
+          {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+        </div>
         {/* Filter pills pushed to right */}
-        <div className="ml-auto flex items-center gap-1.5 pr-1">
+        <div className="flex items-center gap-1.5 pr-1">
           {FILTER_PILLS.map(p => (
             <button key={p.key}
               onClick={() => setActiveFilter(activeFilter === p.key ? null : p.key)}
@@ -1758,7 +1875,7 @@ export default function POSPage() {
             <input
               className="w-full px-2.5 py-1.5 rounded text-xs border focus:outline-none"
               style={{ background: SURF2, color: TEXT, borderColor: BORD }}
-              placeholder="Table, Order No, Waiter…"
+              placeholder="Order No, Customer, Mobile…"
               value={orderSearch} onChange={e => setOrderSearch(e.target.value)} />
           </div>
 
@@ -1771,6 +1888,7 @@ export default function POSPage() {
                 : filteredOrders.map((order: any) => (
                   <button key={order.id}
                     onClick={() => setSelectedOrderId(selectedOrderId === order.id ? null : order.id)}
+                    onDoubleClick={() => setDetailsOrderId(order.id)}
                     className="w-full p-2 rounded text-left transition-all"
                     style={{
                       background:  selectedOrderId === order.id ? SURF2 : "transparent",
@@ -1966,23 +2084,25 @@ export default function POSPage() {
           <div className="flex">
             <button onClick={resetOrder}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110"
-              style={{ background: "var(--color-danger)" }}>
+              style={{ background: "var(--color-danger)", filter: "brightness(0.8)" }}>
               <X size={14} /> Cancel
             </button>
             <button onClick={() => placeOrder.mutate("draft")} disabled={cartItems.length === 0 || placeOrder.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
-              style={{ background: "var(--color-purple)" }}>
+              style={{ background: "var(--color-purple)", filter: "brightness(0.8)" }}>
               <FileText size={14} /> Draft
             </button>
             <button onClick={() => placeOrder.mutate("quick-invoice")} disabled={cartItems.length === 0 || placeOrder.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
-              style={{ background: "var(--color-info)" }}>
+              style={{ background: "var(--color-info)", filter: "brightness(0.8)" }}>
               {placeOrder.isPending ? <Spinner size={14} /> : <><Receipt size={14} /> Quick Invoice</>}
             </button>
             <button onClick={() => placeOrder.mutate("confirmed")} disabled={cartItems.length === 0 || placeOrder.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
-              style={{ background: "var(--color-success)" }}>
-              {placeOrder.isPending ? <Spinner size={14} /> : <><UtensilsCrossed size={14} /> Place Order</>}
+              style={{ background: "var(--color-success)", filter: "brightness(0.8)" }}>
+              {placeOrder.isPending
+                ? <Spinner size={14} />
+                : <><UtensilsCrossed size={14} /> {modifyOrderId ? "Update Order" : "Place Order"}</>}
             </button>
           </div>
         </div>
@@ -2231,6 +2351,52 @@ export default function POSPage() {
             setPendingKot(null);
           }}
         />
+      )}
+
+      {/* Order updated (modify mode) — ask whether to print full KOT or only the changes */}
+      {pendingKotChoice && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
+          <div className="rounded-xl border shadow-2xl p-5 w-80" style={{ background: SURF, borderColor: BORD }}>
+            <div className="font-bold text-sm mb-2" style={{ color: TEXT }}>Order Updated</div>
+            <div className="text-xs mb-4" style={{ color: MUTED }}>
+              Do you want to print the updated items only, or reprint the full KOT?
+            </div>
+            {(pendingKotChoice.addedItems.length === 0 && pendingKotChoice.reducedItems.length === 0) ? (
+              <div className="flex flex-col gap-2">
+                <div className="text-xs mb-1" style={{ color: DIM }}>No item changes detected.</div>
+                <button onClick={() => setPendingKotChoice(null)}
+                  className="py-2 rounded text-xs font-semibold" style={{ background: BORD, color: TEXT }}>Close</button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    setPendingKot({ ...pendingKotChoice, items: pendingKotChoice.allItems });
+                    setPendingKotChoice(null);
+                  }}
+                  className="py-2.5 rounded text-xs font-bold border"
+                  style={{ borderColor: BORD, background: BORD, color: TEXT }}>
+                  All Items (full reprint)
+                </button>
+                <button
+                  onClick={() => {
+                    const items = [
+                      ...pendingKotChoice.addedItems.map((i: any) => ({ ...i, modifiers: [], cancelled: false })),
+                      ...pendingKotChoice.reducedItems.map((i: any) => ({ ...i, modifiers: [], cancelled: true })),
+                    ];
+                    setPendingKot({ ...pendingKotChoice, items });
+                    setPendingKotChoice(null);
+                  }}
+                  className="py-2.5 rounded text-xs font-bold"
+                  style={{ background: GOLD, color: "var(--color-surface)" }}>
+                  Updated Items Only
+                </button>
+                <button onClick={() => setPendingKotChoice(null)}
+                  className="py-2 rounded text-xs" style={{ color: MUTED }}>Skip Printing</button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Quick Add Item Modal */}

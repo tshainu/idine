@@ -1,47 +1,29 @@
-# QR Menu / Table Self-Ordering System
+# iDine POS — Task List (batch of 18 requests)
 
-## Flow
-1. **Tables page** → Download QR button per table → QR encodes `/menu?branch=1&table=T1`
-2. **Customer QR Menu** (`/menu` page) → Beautiful mini POS → Customer browses + orders → POST to /api/orders with source="qr" + tableId
-3. **DB** → Add `source` column to orders table (qr | pos | self)
-4. **POS toolbar QR icon** → Opens "QR Orders" modal (replaces old SelfOrderQRModal logic) → shows pending qr orders with badge count
-5. **QR Orders Modal** → List of incoming qr orders → assign waiter → Accept (prints KOT) or Reject
-6. **Waiter notification** → If waiter is logged in, they see assignment notification → Confirm → KOT prints
-
-## DB Changes
-- orders table: ADD COLUMN source TEXT DEFAULT 'pos'  (qr | pos)
-- schema.ts: add source field
-
-## Files to create/modify
-1. `packages/web/src/web/pages/menu.tsx` — Customer QR menu page (public, no auth)
-2. `packages/web/src/web/pages/tables.tsx` — Add QR download button per table
-3. `packages/web/src/web/components/pos-toolbar-modals.tsx` — Replace SelfOrderQRModal with QROrdersModal
-4. `packages/web/src/web/pages/pos.tsx` — Change QR icon to open QROrdersModal, add badge count, poll
-5. `packages/web/src/api/database/schema.ts` — add source to orders
-6. `packages/web/src/api/routes/orders.ts` — filter by source=qr for notification endpoint
-7. `packages/web/src/web/app.tsx` — add /menu route
-
-## QR Orders Modal (POS)
-- Polls /api/orders?source=qr&status=pending every 5s
-- Shows badge count on toolbar icon
-- Each order: table name, items, total, time
-- Actions: Assign Waiter dropdown + Accept (prints KOT) | Reject
-- Accept flow: PATCH order status→confirmed, set waiterId, create print-jobs
-
-## Customer Menu Page (/menu?branch=1&table=T1)
-- Public page (no auth needed)
-- Shows restaurant name + menu categories/items
-- Cart at bottom
-- Name field (optional customer name)
-- Place Order → creates order with source=qr, status=pending, type=dine-in
-- Shows "Order placed! Your order is being prepared" confirmation
+Repo: /home/user/idine (github.com/tshainu/idine)
+VPS: root@69.169.97.195, /var/www/idine, pm2 process "idine", port 6062
+IMPORTANT: local.db is tracked in git history but is LIVE DATA on VPS — never `git checkout`/`git reset` it. Only `git merge --ff-only` for code.
 
 ## Status
-- [ ] DB migration (add source column)
-- [ ] schema.ts update  
-- [ ] /menu page
-- [ ] tables.tsx QR download
-- [ ] QROrdersModal
-- [ ] POS badge + polling
-- [ ] app.tsx route
-- [ ] build + test
+1. [ ] Modify-order flow: "Place Order" while modifying should NOT create new order; should update existing order, then open KOT modal asking "Updated items only" vs "All items"; show cancelled/reduced qty with minus e.g. "-2 Lemon Juice"
+2. [ ] Invoice print: reduce L/R margin, bold item/qty/price/amount header row + divider under it
+3. [ ] Qty column spacing — move closer to Price, away from Item name
+4. [ ] Currency: remove "Rs" prefix and ".00" trailing zeros mid-receipt; keep "LKR" only on TOTAL/Cash Given/Paid/Balance lines
+5. [ ] Increase invoice header image holder size slightly
+6. [ ] Darken Cancel/Draft/Quick Order/Place Order button colors
+7. [ ] Category "All" tab in POS — sort by best-selling (qty sold desc) instead of default
+8. [ ] BUG: Finalize Sale sometimes shows payable=0, cart details not showing — investigate & fix
+9. [ ] Redesign variation-picker modal — more options, proper alignment
+10. [ ] Add Export (CSV/Excel) buttons: Items, Categories, Sales list, Purchases, Expenses
+11. [ ] BUG: Register "Today's Summary" — cancelled orders count always 0
+12. [ ] Running-order search — include customer mobile number
+13. [ ] Double-click running order → open Order Details modal
+14. [ ] Button label: "Update Order" in modify mode vs "Place Order" normal
+15. [ ] Add per-cart-item note field (next to Mod button) — prints only on KOT (e.g. "Low spicy")
+16. [ ] Move toast/alert box to center of top bar (between iDine POS logo and Online button)
+17. [ ] Combo & Promo management: new page/tabs, CRUD + suspend, sellable from POS
+18. [ ] Category table: add sort icon column; new category auto-gets next sort order number
+
+## Notes
+- Deploy flow: commit+push from /home/user/idine → ssh VPS → git fetch && merge --ff-only → bun run build (packages/web) → pm2 restart idine
+- Schema changes need `drizzle-kit push --force` on VPS with DATABASE_URL=file:/var/www/idine/local.db (safe — additive only, backup local.db first)

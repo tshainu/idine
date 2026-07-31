@@ -1,9 +1,25 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, and, asc, inArray } from "drizzle-orm";
+import { eq, and, asc, inArray, sql } from "drizzle-orm";
 
 export const menuItems = new Hono()
+  .get("/best-sellers", async (c) => {
+    const branchId = c.req.query("branchId");
+    const conditions = [sql`${schema.orders.status} not in ('cancelled', 'draft')`];
+    if (branchId) conditions.push(eq(schema.orders.branchId, parseInt(branchId)));
+    const rows = await db
+      .select({
+        menuItemId: schema.orderItems.menuItemId,
+        totalQty: sql<number>`sum(${schema.orderItems.qty})`.as("totalQty"),
+      })
+      .from(schema.orderItems)
+      .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
+      .where(and(...conditions))
+      .groupBy(schema.orderItems.menuItemId)
+      .orderBy(sql`sum(${schema.orderItems.qty}) desc`);
+    return c.json({ bestSellers: rows }, 200);
+  })
   .get("/", async (c) => {
     const branchId = c.req.query("branchId");
     const categoryId = c.req.query("categoryId");
