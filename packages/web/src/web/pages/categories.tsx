@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight, GripVertical, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight, GripVertical, Search, ArrowUp, ArrowDown } from "lucide-react";
 
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
@@ -20,6 +20,7 @@ export default function CategoriesPage() {
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
   const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Drag state
   const dragIdx = useRef<number | null>(null);
@@ -37,9 +38,9 @@ export default function CategoriesPage() {
   const categories: any[] = (catData as any)?.categories || [];
   const menuItems: any[] = (menuData as any)?.menuItems || [];
 
-  // Sort categories by sortOrder, then filter by search
+  // Sort categories by sortOrder (toggle via the header sort icon), then filter by search
   const sorted = [...categories]
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .sort((a, b) => sortDir === "asc" ? (a.sortOrder ?? 0) - (b.sortOrder ?? 0) : (b.sortOrder ?? 0) - (a.sortOrder ?? 0))
     .filter(c => c.name?.toLowerCase().includes(search.trim().toLowerCase()));
 
   function itemCount(catId: number) {
@@ -120,7 +121,14 @@ export default function CategoriesPage() {
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-6 border-b shrink-0" style={{ background: SURF, borderColor: BORD }}>
           <div className="font-bold text-base" style={{ color: TEXT }}>Menu Categories</div>
-          <button onClick={() => { resetForm(); setShowForm(true); }}
+          <button onClick={() => {
+              resetForm();
+              const nextSortOrder = categories.length
+                ? Math.max(...categories.map((c: any) => c.sortOrder ?? 0)) + 1
+                : 0;
+              setForm({ sortOrder: nextSortOrder });
+              setShowForm(true);
+            }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
             style={{ background: GOLD, color: "var(--color-surface)" }}>
             <Plus size={13} />
@@ -168,7 +176,19 @@ export default function CategoriesPage() {
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${BORD}` }}>
                     <th className="px-3 py-3 text-left text-xs font-semibold w-8" style={{ color: DIM }}></th>
-                    {["Category Name", "Items", "Sort Order", "Active", "Actions"].map(h => (
+                    {["Category Name", "Items"].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>{h}</th>
+                    ))}
+                    <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>
+                      <button
+                        onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}
+                        className="flex items-center gap-1 hover:brightness-125"
+                        title="Toggle sort order">
+                        Sort Order
+                        {sortDir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                      </button>
+                    </th>
+                    {["Active", "Actions"].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: DIM }}>{h}</th>
                     ))}
                   </tr>
