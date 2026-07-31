@@ -863,7 +863,7 @@ function ReceiptHeader({ settings, label }: { settings: Record<string, string>; 
   if (headerImg) {
     return (
       <div style={{ textAlign: "center", marginBottom: 12 }}>
-        <img src={headerImg} alt="Header" style={{ maxWidth: "100%", maxHeight: 90, objectFit: "contain", display: "block", margin: "0 auto" }} />
+        <img src={headerImg} alt="Header" style={{ maxWidth: "100%", maxHeight: 130, objectFit: "contain", display: "block", margin: "0 auto" }} />
         <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#000" }}>{label}</div>
       </div>
     );
@@ -895,7 +895,10 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
   const settings: Record<string, string> = (settingsRaw as any)?.settings || {};
   const order = (data as any)?.order;
   const items: any[] = (data as any)?.items || [];
-  const money = (n: number) => `Rs ${Number(n || 0).toFixed(2)}`;
+  // Plain number, no currency symbol, no trailing ".00" on whole numbers
+  const num = (n: number) => { const v = Number(n || 0); return Number.isInteger(v) ? String(v) : v.toFixed(2); };
+  // LKR-prefixed — used only for TOTAL / Cash Given / Amount Paid / Balance
+  const money = (n: number) => `LKR ${num(n)}`;
   const isInvoice = mode === "invoice";
   const label = isInvoice ? "INVOICE" : "BILL";
   const printId = "idine-invoice-printable";
@@ -943,7 +946,7 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   background: "#fff",
                   color: "#000",
                   fontWeight: 600,
-                  padding: "20px 24px 16px",
+                  padding: "20px 10px 16px",
                   fontSize: 13,
                   lineHeight: 1.5,
                 }}>
@@ -983,20 +986,21 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   <div style={{ borderTop: "1px solid #000", margin: "10px 0" }} />
 
                   {/* Items header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 900, color: "#000", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
                     <span style={{ flex: 1 }}>Item</span>
-                    <span style={{ width: 36, textAlign: "center" }}>Qty</span>
-                    <span style={{ width: 72, textAlign: "right" }}>Price</span>
-                    <span style={{ width: 80, textAlign: "right" }}>Amount</span>
+                    <span style={{ width: 30, textAlign: "right" }}>Qty</span>
+                    <span style={{ width: 60, textAlign: "right", marginLeft: 8 }}>Price</span>
+                    <span style={{ width: 68, textAlign: "right", marginLeft: 8 }}>Amount</span>
                   </div>
+                  <div style={{ borderTop: "2px solid #000", marginBottom: 6 }} />
 
                   {/* Items */}
                   {items.map((it: any, i: number) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3, paddingBottom: 3, borderBottom: "1px dotted #e5e7eb" }}>
-                      <span style={{ flex: 1, paddingRight: 4 }}>{it.name}</span>
-                      <span style={{ width: 36, textAlign: "center", color: "#000" }}>{it.qty}</span>
-                      <span style={{ width: 72, textAlign: "right", color: "#000" }}>{money(it.price)}</span>
-                      <span style={{ width: 80, textAlign: "right", fontWeight: 500 }}>{money(it.total)}</span>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3, paddingBottom: 3, borderBottom: "1px dotted #999" }}>
+                      <span style={{ flex: 1, paddingRight: 16 }}>{it.name}</span>
+                      <span style={{ width: 30, textAlign: "right", color: "#000" }}>{it.qty}</span>
+                      <span style={{ width: 60, textAlign: "right", color: "#000", marginLeft: 8 }}>{num(it.price)}</span>
+                      <span style={{ width: 68, textAlign: "right", fontWeight: 700, marginLeft: 8 }}>{num(it.total)}</span>
                     </div>
                   ))}
 
@@ -1004,18 +1008,18 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   <div style={{ borderTop: "1px solid #000", marginTop: 8, paddingTop: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                       <span>Subtotal</span>
-                      <span>{money(subtotal)}</span>
+                      <span>{num(subtotal)}</span>
                     </div>
                     {discount > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                         <span>Discount</span>
-                        <span>- {money(discount)}</span>
+                        <span>- {num(discount)}</span>
                       </div>
                     )}
                     {serviceCharge > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                         <span>Service Charge</span>
-                        <span>{money(serviceCharge)}</span>
+                        <span>{num(serviceCharge)}</span>
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, borderTop: "2px solid #000", marginTop: 6, paddingTop: 6 }}>
