@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { getBranchId } from "../lib/store";
+import { getBranchId, getUser } from "../lib/store";
 import { Spinner } from "../components/ui/spinner";
 import {
   Search, Plus, Minus, Pencil, RotateCcw, FileText, Receipt, Printer,
@@ -843,7 +843,10 @@ function triggerPrint(printableId: string) {
     document.body.appendChild(root);
   }
   const src = document.getElementById(printableId);
-  root.innerHTML = src ? src.innerHTML : "";
+  // Use outerHTML (not innerHTML) so the source element's own inline styles
+  // (color, font-weight, font-family, etc.) travel with it — innerHTML only
+  // copied the children, silently dropping the wrapper's styling on print.
+  root.innerHTML = src ? src.outerHTML : "";
   root.style.display = "block";
   window.print();
   root.style.display = "none";
@@ -1083,7 +1086,7 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   {/* Footer */}
                   <div style={{ borderTop: "1px solid #000", marginTop: 12, paddingTop: 10, textAlign: "center" }}>
                     {footerText.split("\n").map((line, i) => (
-                      <div key={i} style={{ fontSize: 11, color: i === 0 ? "#555" : "#9ca3af", marginBottom: 2 }}>{line}</div>
+                      <div key={i} style={{ fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 2 }}>{line}</div>
                     ))}
                   </div>
                 </div>
@@ -1137,33 +1140,39 @@ function KotOverlay({ kot, onClose, onPrinted }: { kot: any; onClose: () => void
             background: "#fff", color: "#000", fontWeight: 700,
             padding: "20px 24px 16px", fontSize: 13, lineHeight: 1.5,
           }}>
+            {/* Title */}
+            <div style={{ textAlign: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: 3, color: "#000" }}>***KOT***</span>
+            </div>
             <div style={{ textAlign: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, color: "#000" }}>*** KITCHEN ORDER TICKET ***</span>
+              <span style={{
+                fontSize: 13, fontWeight: 900, letterSpacing: 1.5, color: "#000",
+                border: "2px solid #000", padding: "2px 10px",
+              }}>{typeLabel}</span>
             </div>
-            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
-            <div style={{ textAlign: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1.5, color: "#000" }}>{typeLabel}</span>
-            </div>
-            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Order #: {kot.orderNumber}</div>
-            {kot.tableId && <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Table: {kot.tableId}</div>}
-            {kot.waiterName && <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Waiter: {kot.waiterName}</div>}
-            {kot.customerName && <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Customer: {kot.customerName}</div>}
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>
-              Time: {now.toLocaleTimeString("en-GB")}
-            </div>
-            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
+            <div style={{ borderTop: "2px solid #000", margin: "8px 0" }} />
+
+            {/* Meta */}
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#000", marginBottom: 3 }}>Order #: {kot.orderNumber}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#000", marginBottom: 3 }}>Time: {now.toLocaleTimeString("en-GB")}</div>
+            {kot.tableId && <div style={{ fontSize: 12, fontWeight: 800, color: "#000", marginBottom: 3 }}>Table: {kot.tableId}</div>}
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#000", marginBottom: 3 }}>Placed By: {kot.placedBy || "—"}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#000", marginBottom: 3 }}>Waiter: {kot.waiterName || "—"}</div>
+            {kot.customerName && <div style={{ fontSize: 12, fontWeight: 800, color: "#000", marginBottom: 3 }}>Customer: {kot.customerName}</div>}
+
+            <div style={{ borderTop: "2px solid #000", margin: "8px 0" }} />
+
+            {/* Items */}
             {kot.items.map((it: any, i: number) => (
-              <div key={i} style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 900, color: "#000" }}>
+              <div key={i} style={{ marginBottom: 7, paddingBottom: 5, borderBottom: "1px dashed #000" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 900, color: "#000" }}>
                   <span>{it.qty}x {it.name}</span>
                 </div>
                 {it.modifiers?.length > 0 && it.modifiers.map((m: string, j: number) => (
-                  <div key={j} style={{ fontSize: 11, fontWeight: 700, color: "#000", paddingLeft: 10 }}>+ {m}</div>
+                  <div key={j} style={{ fontSize: 12, fontWeight: 800, color: "#000", paddingLeft: 12 }}>+ {m}</div>
                 ))}
               </div>
             ))}
-            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
           </div>
         </div>
 
@@ -1320,7 +1329,7 @@ export default function POSPage() {
         json: {
           branchId, type: orderType, status: apiStatus, tableId: selectedTableId,
           waiterId: selectedWaiterId, customerId, customerName,
-          subtotal, total: subtotal, orderNumber,
+          subtotal, total: subtotal, orderNumber, placedBy: getUser()?.name || null,
         },
       })).json();
       const orderId = (order as any).order.id;
@@ -1350,6 +1359,7 @@ export default function POSPage() {
           orderId, itemIds: createdItemIds,
           orderNumber: (order as any).order.orderNumber,
           type: orderType, tableId: selectedTableId, waiterName: selectedWaiterName,
+          placedBy: getUser()?.name || null,
           customerName: customerName !== "Walk-in Customer" ? customerName : null,
           items: cartItems.map(i => ({
             name: i.name, qty: i.qty,
@@ -1391,6 +1401,7 @@ export default function POSPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["orders"] }); setCancelConfirmId(null); setSelectedOrderId(null); },
   });
 
+  // Re-print KOT — same browser print dialog as the initial KOT (no more silent auto-print to a thermal printer)
   const reprintKOT = useMutation({
     mutationFn: async ({ orderId, mode }: { orderId: number; mode: "all" | "new" }) => {
       const res = await (await api.orders[":id"].$get({ param: { id: String(orderId) } })).json() as any;
@@ -1411,23 +1422,22 @@ export default function POSPage() {
           const maxTs = Math.max(...items.map((it: any) => ts(it.createdAt)));
           printItems = items.filter((it: any) => maxTs - ts(it.createdAt) < 3000 && ts(it.createdAt) - orderTs > 1000);
         }
-        if (printItems.length === 0) { showToast("No new items to print"); return; }
+        if (printItems.length === 0) { showToast("No new items to print"); return null; }
       }
-      const printerGroups = printItems.reduce((acc: any, item: any) => {
-        const pid = item.printerId ?? (item.categoryId != null ? categoryPrinterMap[item.categoryId] : null) ?? null;
-        if (pid) { (acc[pid] ||= []).push(item); }
-        return acc;
-      }, {});
-      const now = Date.now();
-      const jobs = Object.entries(printerGroups).map(([pid, pitems]: any) => ({
-        branchId, orderId, printerId: parseInt(pid),
-        idempotencyKey: `${orderId}-${pid}-kot-reprint-${mode}-${now}`, type: "reprint", status: "pending",
-        payload: JSON.stringify({ orderId, orderNumber: order.orderNumber, type: order.type, mode, items: pitems }),
-      }));
-      if (jobs.length > 0) await (await api["print-jobs"].batch.$post({ json: { jobs } })).json();
-      return mode;
+      const waiter = waiters.find((w: any) => w.id === order.waiterId);
+      return {
+        orderId, itemIds: printItems.map((it: any) => it.id),
+        orderNumber: order.orderNumber,
+        type: order.type, tableId: order.tableId, waiterName: waiter?.name || null,
+        placedBy: order.placedBy || null,
+        customerName: order.customerName !== "Walk-in Customer" ? order.customerName : null,
+        items: printItems.map((it: any) => ({
+          name: it.name, qty: it.qty,
+          modifiers: (() => { try { return JSON.parse(it.modifiers || "[]"); } catch { return []; } })(),
+        })),
+      };
     },
-    onSuccess: (mode) => { if (mode) showToast(mode === "new" ? "New items KOT queued" : "Full KOT reprint queued"); },
+    onSuccess: (kotPreview) => { if (kotPreview) setPendingKot(kotPreview); },
   });
 
   // Load order into cart for modification
