@@ -37,6 +37,7 @@ type CartItem  = {
   printerId: number | null;
   categoryId: number | null;
   modifiers: Modifier[];
+  note?: string; // kitchen instruction, e.g. "Low spicy" — prints on the KOT only
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1186,6 +1187,11 @@ function KotOverlay({ kot, onClose, onPrinted }: { kot: any; onClose: () => void
                 {it.modifiers?.length > 0 && it.modifiers.map((m: string, j: number) => (
                   <div key={j} style={{ fontSize: 12, fontWeight: 800, color: "#000", paddingLeft: 12 }}>+ {m}</div>
                 ))}
+                {it.note && (
+                  <div style={{ fontSize: 12, fontWeight: 900, color: "#000", paddingLeft: 12, fontStyle: "italic" }}>
+                    ** {it.note} **
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1243,6 +1249,10 @@ export default function POSPage() {
 
   // Modifier picker state
   const [modPickerItemId,    setModPickerItemId]    = useState<number | null>(null);
+
+  // Per-item kitchen note (e.g. "Low spicy") — prints on the KOT only
+  const [notePickerItemId,   setNotePickerItemId]   = useState<number | string | null>(null);
+  const [noteDraft,          setNoteDraft]          = useState("");
 
   // Variation picker state
   const [varPickerItem,      setVarPickerItem]      = useState<any | null>(null);
@@ -1375,6 +1385,7 @@ export default function POSPage() {
                 qty: i.qty, printerId: i.printerId,
                 total: i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty,
                 modifiers: i.modifiers.length ? JSON.stringify(i.modifiers.map(m => m.name)) : null,
+                note: i.note || null,
               })),
             },
           })).json();
@@ -1417,7 +1428,7 @@ export default function POSPage() {
           order: { id: orderId }, isModify: true,
           kotChoice: apiStatus === "draft" ? null : {
             ...kotBase,
-            allItems: cartItems.map(i => ({ name: i.name, qty: i.qty, modifiers: i.modifiers.map(m => m.name) })),
+            allItems: cartItems.map(i => ({ name: i.name, qty: i.qty, note: i.note, modifiers: i.modifiers.map(m => m.name) })),
             addedItems, reducedItems,
           },
         };
@@ -1453,6 +1464,7 @@ export default function POSPage() {
               qty: i.qty, printerId: i.printerId,
               total: i.qty * i.price - i.discount + i.modifiers.reduce((ms, m) => ms + m.price, 0) * i.qty,
               modifiers: i.modifiers.length ? JSON.stringify(i.modifiers.map(m => m.name)) : null,
+              note: i.note || null,
             })),
           },
         })).json();
@@ -1472,7 +1484,7 @@ export default function POSPage() {
           placedBy: getUser()?.name || null,
           customerName: customerName !== "Walk-in Customer" ? customerName : null,
           items: cartItems.map(i => ({
-            name: i.name, qty: i.qty,
+            name: i.name, qty: i.qty, note: i.note,
             modifiers: i.modifiers.map(m => m.name),
           })),
         };
@@ -1548,7 +1560,7 @@ export default function POSPage() {
         placedBy: order.placedBy || null,
         customerName: order.customerName !== "Walk-in Customer" ? order.customerName : null,
         items: printItems.map((it: any) => ({
-          name: it.name, qty: it.qty,
+          name: it.name, qty: it.qty, note: it.note,
           modifiers: (() => { try { return JSON.parse(it.modifiers || "[]"); } catch { return []; } })(),
         })),
       };
@@ -1611,6 +1623,10 @@ export default function POSPage() {
   function removeItem(id: number) { setCartItems(prev => prev.filter(i => i.menuItemId !== id)); }
   function setItemModifiers(menuItemId: number, mods: Modifier[]) {
     setCartItems(prev => prev.map(i => i.menuItemId === menuItemId ? { ...i, modifiers: mods } : i));
+  }
+
+  function setItemNote(menuItemId: number | string, note: string) {
+    setCartItems(prev => prev.map(i => i.menuItemId === menuItemId ? { ...i, note: note.trim() || undefined } : i));
   }
 
   // Quick Add Item mutation
@@ -2061,7 +2077,18 @@ export default function POSPage() {
                               <SlidersHorizontal size={9} className="inline mr-0.5" />
                               Mod
                             </button>
+                            <button onClick={() => { setNotePickerItemId(item.menuItemId); setNoteDraft(item.note || ""); }}
+                              className="text-[10px] px-1.5 py-0.5 rounded border transition-colors hover:brightness-110"
+                              style={{ borderColor: item.note ? GOLD : BORD, color: item.note ? GOLD : DIM }}>
+                              <FileText size={9} className="inline mr-0.5" />
+                              Note
+                            </button>
                           </div>
+                          {item.note && (
+                            <div className="text-[10px] mt-0.5 italic" style={{ color: GOLD }}>
+                              "{item.note}"
+                            </div>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-xs text-right font-mono" style={{ color: MUTED }}>{item.price.toFixed(2)}</td>
                         <td className="px-2 py-2">
@@ -2266,6 +2293,31 @@ export default function POSPage() {
             selected={item.modifiers}
             onChange={mods => setItemModifiers(modPickerItemId, mods)}
             onClose={() => setModPickerItemId(null)} />
+        );
+      })()}
+
+      {/* Kitchen note picker — per cart item, prints only on the KOT */}
+      {notePickerItemId !== null && (() => {
+        const item = cartItems.find(i => i.menuItemId === notePickerItemId);
+        if (!item) return null;
+        return (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
+            <div className="w-80 rounded-xl border shadow-2xl p-4" style={{ background: SURF, borderColor: BORD }}>
+              <div className="font-bold text-sm mb-1" style={{ color: TEXT }}>Note for Kitchen</div>
+              <div className="text-xs mb-3" style={{ color: MUTED }}>{item.name} — prints on the KOT only</div>
+              <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)}
+                placeholder='e.g. "Low spicy", "No onion"' rows={3}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-transparent outline-none resize-none"
+                style={{ background: BG, borderColor: BORD, color: TEXT }} />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setNotePickerItemId(null)}
+                  className="px-4 py-2 rounded-lg text-xs" style={{ background: BORD, color: MUTED }}>Cancel</button>
+                <button onClick={() => { setItemNote(notePickerItemId, noteDraft); setNotePickerItemId(null); }}
+                  className="px-4 py-2 rounded-lg text-xs font-semibold"
+                  style={{ background: GOLD, color: "var(--color-surface)" }}>Save</button>
+              </div>
+            </div>
+          </div>
         );
       })()}
 

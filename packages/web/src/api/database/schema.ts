@@ -154,6 +154,7 @@ export const orderItems = sqliteTable("order_items", {
   printerId: integer("printer_id").references(() => printers.id),
   total: real("total").notNull().default(0),
   kotPrinted: integer("kot_printed", { mode: "boolean" }).notNull().default(false),
+  note: text("note"), // kitchen instruction e.g. "Low spicy" — prints on the KOT only
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
