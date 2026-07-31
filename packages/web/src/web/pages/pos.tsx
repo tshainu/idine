@@ -455,11 +455,13 @@ function FinalizeModal({
   items,
   onClose,
   onSubmit,
+  loading,
 }: {
   order: any;
   items: any[];
   onClose: () => void;
   onSubmit?: (payments: PaymentEntry[], summary: { subtotal: number; discount: number; serviceCharge: number; total: number; amountPaid: number; cashGiven: number; balance: number; paymentMethod: string }) => void;
+  loading?: boolean;
 }) {
   const branchId = getBranchId();
   const { data: settingsRaw } = useQuery({
@@ -567,6 +569,12 @@ function FinalizeModal({
           <button onClick={onClose} style={{ color: MUTED }}><X size={16} /></button>
         </div>
 
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: MUTED }}>
+            <Spinner size={16} /> <span className="ml-2">Loading order…</span>
+          </div>
+        ) : (
+        <>
         {/* Body */}
         <div className="flex flex-1 overflow-hidden min-h-0">
 
@@ -817,6 +825,8 @@ function FinalizeModal({
             ⊞ Submit{!canSubmit && due > 0 ? ` (Due LKR${due.toFixed(2)})` : ""}
           </button>
         </div>
+        </>
+        )}
 
       </div>
     </div>
@@ -1315,15 +1325,21 @@ export default function POSPage() {
     } catch { return {}; }
   }, [printerSettingsData]);
 
-  // Fetch details for modals when an order is selected
+  // Fetch details for the Order Details modal — own query, keyed only by detailsOrderId
+  // (previously shared one query across 4 unrelated modal ids, which could serve stale/empty
+  // data to whichever modal read it last — root cause of "Finalize Sale shows 0 / cart details
+  // not showing" reports).
   const { data: orderDetailData } = useQuery({
-    queryKey: ["order-detail", detailsOrderId ?? billOrderId ?? invoiceOrderId ?? finalizeOrderId],
-    queryFn: async () => {
-      const id = detailsOrderId ?? billOrderId ?? invoiceOrderId ?? finalizeOrderId;
-      if (!id) return null;
-      return (await api.orders[":id"].$get({ param: { id: String(id) } })).json();
-    },
-    enabled: !!(detailsOrderId || billOrderId || invoiceOrderId || finalizeOrderId),
+    queryKey: ["order-detail", detailsOrderId],
+    queryFn: async () => (await api.orders[":id"].$get({ param: { id: String(detailsOrderId) } })).json(),
+    enabled: !!detailsOrderId,
+  });
+
+  // Fetch details for the Finalize Sale modal — own query, keyed only by finalizeOrderId
+  const { data: finalizeDetailData, isLoading: finalizeLoading } = useQuery({
+    queryKey: ["finalize-order-detail", finalizeOrderId],
+    queryFn: async () => (await api.orders[":id"].$get({ param: { id: String(finalizeOrderId) } })).json(),
+    enabled: !!finalizeOrderId,
   });
 
   // ── Mutations
@@ -1671,6 +1687,9 @@ export default function POSPage() {
   const modalOrderData  = (orderDetailData as any) ?? {};
   const modalOrder      = modalOrderData.order  ?? {};
   const modalItems      = modalOrderData.items  ?? [];
+  const finalizeOrderData = (finalizeDetailData as any) ?? {};
+  const finalizeOrder     = finalizeOrderData.order ?? {};
+  const finalizeItems     = finalizeOrderData.items ?? [];
 
   // Item row total (with modifiers)
   function itemTotal(item: CartItem) {
@@ -2287,10 +2306,11 @@ export default function POSPage() {
       )}
 
       {/* Finalize Sale modal — for Invoice (running order) and Quick Invoice */}
-      {finalizeOrderId && modalOrder.id && (
+      {finalizeOrderId && (finalizeLoading || finalizeOrder.id) && (
         <FinalizeModal
-          order={modalOrder}
-          items={modalItems}
+          order={finalizeOrder}
+          items={finalizeItems}
+          loading={finalizeLoading}
           onClose={() => { setFinalizeOrderId(null); setFinalizeIsQuick(false); }}
           onSubmit={async (_payments, summary) => {
             const completedId = finalizeOrderId!;
