@@ -509,6 +509,13 @@ function FinalizeModal({
     setAmount(""); setGivenAmount(""); setRefNote("");
   }
 
+  function handleBillAmount() {
+    const amt = due > 0 ? due : payable;
+    if (!amt || amt <= 0) return;
+    setPayments(prev => [...prev, { method: activeMethod, amount: amt, ref: refNote || undefined }]);
+    setAmount(""); setGivenAmount(""); setRefNote("");
+  }
+
   function handleClear() {
     setGivenAmount(""); setAmount(""); setRefNote(""); setPayments([]);
   }
@@ -708,7 +715,7 @@ function FinalizeModal({
                       {v}
                     </button>
                   ))}
-                  <button onClick={() => setAmount(due > 0 ? due.toFixed(2) : payable.toFixed(2))}
+                  <button onClick={handleBillAmount}
                     className="col-span-2 py-2.5 rounded text-base font-semibold border"
                     style={{ borderColor: GOLD, background: `${GOLD}22`, color: GOLD }}>
                     Bill Amount
@@ -854,17 +861,17 @@ function ReceiptHeader({ settings, label }: { settings: Record<string, string>; 
     return (
       <div style={{ textAlign: "center", marginBottom: 12 }}>
         <img src={headerImg} alt="Header" style={{ maxWidth: "100%", maxHeight: 90, objectFit: "contain", display: "block", margin: "0 auto" }} />
-        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#333" }}>{label}</div>
+        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#000" }}>{label}</div>
       </div>
     );
   }
   return (
     <div style={{ textAlign: "center", marginBottom: 12 }}>
-      <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 1, color: "#111" }}>{name}</div>
-      {address && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{address}</div>}
-      {phone && <div style={{ fontSize: 11, color: "#555" }}>Tel: {phone}</div>}
-      {email && <div style={{ fontSize: 11, color: "#555" }}>{email}</div>}
-      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#333" }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 1, color: "#000" }}>{name}</div>
+      {address && <div style={{ fontSize: 11, color: "#000", marginTop: 2 }}>{address}</div>}
+      {phone && <div style={{ fontSize: 11, color: "#000" }}>Tel: {phone}</div>}
+      {email && <div style={{ fontSize: 11, color: "#000" }}>{email}</div>}
+      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: 3, color: "#000" }}>{label}</div>
     </div>
   );
 }
@@ -909,29 +916,30 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
-      <div className="rounded-xl shadow-2xl flex flex-col" style={{ background: "#fff", width: 420, maxHeight: "92vh", color: "#111" }}>
+      <div className="rounded-xl shadow-2xl flex flex-col" style={{ background: "#fff", width: 420, maxHeight: "92vh", color: "#000" }}>
 
         {/* ── Modal header bar ── */}
         <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-xl"
           style={{ borderColor: "#e5e7eb", background: "#f9fafb" }}>
           <div className="flex items-center gap-2">
-            <Printer size={14} style={{ color: "#6b7280" }} />
-            <span className="text-sm font-semibold" style={{ color: "#111" }}>{label} Preview</span>
+            <Printer size={14} style={{ color: "#000" }} />
+            <span className="text-sm font-semibold" style={{ color: "#000" }}>{label} Preview</span>
           </div>
-          <button onClick={onClose} style={{ color: "#9ca3af" }}><X size={16} /></button>
+          <button onClick={onClose} style={{ color: "#000" }}><X size={16} /></button>
         </div>
 
         {/* ── Scrollable receipt ── */}
         <div className="flex-1 overflow-y-auto" style={{ padding: "0 0 0 0" }}>
           {isLoading
-            ? <div className="flex justify-center items-center py-16 text-sm" style={{ color: "#9ca3af" }}>Loading…</div>
+            ? <div className="flex justify-center items-center py-16 text-sm" style={{ color: "#000" }}>Loading…</div>
             : !order
               ? <div className="text-center py-16 text-sm" style={{ color: "var(--color-danger)" }}>Failed to load order</div>
               : (
                 <div id={printId} style={{
                   fontFamily: "'Courier New', Courier, monospace",
                   background: "#fff",
-                  color: "#111",
+                  color: "#000",
+                  fontWeight: 600,
                   padding: "20px 24px 16px",
                   fontSize: 13,
                   lineHeight: 1.5,
@@ -947,32 +955,32 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   </div>
 
                   {/* Divider */}
-                  <div style={{ borderTop: "1px dashed #bbb", margin: "10px 0" }} />
+                  <div style={{ borderTop: "1px solid #000", margin: "10px 0" }} />
 
                   {/* Order meta */}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
-                    <span>Order #: <strong style={{ color: "#111" }}>{order.orderNumber}</strong></span>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#000", marginBottom: 2 }}>
+                    <span>Order #: <strong style={{ color: "#000" }}>{order.orderNumber}</strong></span>
                     <span>{dateStr}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#000", marginBottom: 2 }}>
                     <span>{timeStr}</span>
                   </div>
                   {order.customerName && order.customerName !== "Walk-in Customer" && (
-                    <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>
-                      Customer: <strong style={{ color: "#111" }}>{order.customerName}</strong>
+                    <div style={{ fontSize: 11, color: "#000", marginBottom: 2 }}>
+                      Customer: <strong style={{ color: "#000" }}>{order.customerName}</strong>
                     </div>
                   )}
                   {order.tableId && (
-                    <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>
-                      Table: <strong style={{ color: "#111" }}>{order.tableId}</strong>
+                    <div style={{ fontSize: 11, color: "#000", marginBottom: 2 }}>
+                      Table: <strong style={{ color: "#000" }}>{order.tableId}</strong>
                     </div>
                   )}
 
                   {/* Divider */}
-                  <div style={{ borderTop: "1px dashed #bbb", margin: "10px 0" }} />
+                  <div style={{ borderTop: "1px solid #000", margin: "10px 0" }} />
 
                   {/* Items header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
                     <span style={{ flex: 1 }}>Item</span>
                     <span style={{ width: 36, textAlign: "center" }}>Qty</span>
                     <span style={{ width: 72, textAlign: "right" }}>Price</span>
@@ -983,69 +991,69 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   {items.map((it: any, i: number) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3, paddingBottom: 3, borderBottom: "1px dotted #e5e7eb" }}>
                       <span style={{ flex: 1, paddingRight: 4 }}>{it.name}</span>
-                      <span style={{ width: 36, textAlign: "center", color: "#555" }}>{it.qty}</span>
-                      <span style={{ width: 72, textAlign: "right", color: "#555" }}>{money(it.price)}</span>
+                      <span style={{ width: 36, textAlign: "center", color: "#000" }}>{it.qty}</span>
+                      <span style={{ width: 72, textAlign: "right", color: "#000" }}>{money(it.price)}</span>
                       <span style={{ width: 80, textAlign: "right", fontWeight: 500 }}>{money(it.total)}</span>
                     </div>
                   ))}
 
                   {/* Totals block */}
-                  <div style={{ borderTop: "1px dashed #bbb", marginTop: 8, paddingTop: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                  <div style={{ borderTop: "1px solid #000", marginTop: 8, paddingTop: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                       <span>Subtotal</span>
                       <span>{money(subtotal)}</span>
                     </div>
                     {discount > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#16a34a", marginBottom: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                         <span>Discount</span>
                         <span>- {money(discount)}</span>
                       </div>
                     )}
                     {serviceCharge > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                         <span>Service Charge</span>
                         <span>{money(serviceCharge)}</span>
                       </div>
                     )}
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, borderTop: "2px solid #111", marginTop: 6, paddingTop: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 800, borderTop: "2px solid #000", marginTop: 6, paddingTop: 6 }}>
                       <span>TOTAL</span>
                       <span>{money(total)}</span>
                     </div>
 
                     {/* Payment breakdown — invoice only */}
                     {isInvoice && amountPaid > 0 && (
-                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #bbb" }}>
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #000" }}>
                         {payments.length > 1 ? (
                           payments.map((p, i) => (
-                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                               <span>Paid ({p.method}){p.ref ? ` — ${p.ref}` : ""}</span>
                               <span>{money(p.amount)}</span>
                             </div>
                           ))
                         ) : (
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                             <span>Payment Method</span>
                             <span style={{ fontWeight: 600 }}>{paymentMethod}</span>
                           </div>
                         )}
                         {paymentMethod === "Cash" && cashGiven > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555", marginBottom: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
                             <span>Cash Given</span>
                             <span>{money(cashGiven)}</span>
                           </div>
                         )}
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#166534", marginBottom: 3 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                           <span>Amount Paid</span>
                           <span>{money(amountPaid)}</span>
                         </div>
                         {balance > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#166534", marginBottom: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                             <span>Balance (Change)</span>
                             <span>{money(balance)}</span>
                           </div>
                         )}
                         {balance < 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#dc2626", marginBottom: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                             <span>Balance Due</span>
                             <span>{money(Math.abs(balance))}</span>
                           </div>
@@ -1065,7 +1073,7 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                       letterSpacing: 1,
                       textTransform: "uppercase",
                       background: isInvoice ? "#dcfce7" : "#fef9c3",
-                      color: isInvoice ? "#166534" : "#854d0e",
+                      color: "#000",
                       border: `1px solid ${isInvoice ? "#86efac" : "#fde047"}`,
                     }}>
                       {isInvoice ? "✓ PAID" : "PENDING PAYMENT"}
@@ -1073,7 +1081,7 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   </div>
 
                   {/* Footer */}
-                  <div style={{ borderTop: "1px dashed #bbb", marginTop: 12, paddingTop: 10, textAlign: "center" }}>
+                  <div style={{ borderTop: "1px solid #000", marginTop: 12, paddingTop: 10, textAlign: "center" }}>
                     {footerText.split("\n").map((line, i) => (
                       <div key={i} style={{ fontSize: 11, color: i === 0 ? "#555" : "#9ca3af", marginBottom: 2 }}>{line}</div>
                     ))}
@@ -1087,7 +1095,7 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
           <div className="flex gap-2 px-5 py-3 border-t rounded-b-xl" style={{ borderColor: "#e5e7eb", background: "#f9fafb" }}>
             <button onClick={onClose}
               className="flex-1 py-2 rounded-lg text-xs font-medium border"
-              style={{ color: "#6b7280", borderColor: "#d1d5db", background: "#fff" }}>
+              style={{ color: "#000", borderColor: "#d1d5db", background: "#fff" }}>
               Close
             </button>
             <button onClick={() => triggerPrint(printId)}
@@ -1097,6 +1105,81 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── KOT print preview overlay (mirrors InvoiceOverlay: preview + native browser print dialog) ──
+function KotOverlay({ kot, onClose, onPrinted }: { kot: any; onClose: () => void; onPrinted: () => void }) {
+  const printId = "idine-kot-printable";
+  const typeLabel = kot.type === "dine-in" ? "DINE IN" : kot.type === "takeaway" ? "TAKEAWAY" : kot.type === "delivery" ? "DELIVERY" : (kot.type || "").toUpperCase();
+  const now = new Date();
+
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
+      <div className="rounded-xl shadow-2xl flex flex-col" style={{ background: "#fff", width: 380, maxHeight: "92vh", color: "#000" }}>
+
+        {/* Modal header bar */}
+        <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-xl"
+          style={{ borderColor: "#e5e7eb", background: "#f9fafb" }}>
+          <div className="flex items-center gap-2">
+            <Printer size={14} style={{ color: "#000" }} />
+            <span className="text-sm font-bold" style={{ color: "#000" }}>KOT Preview</span>
+          </div>
+          <button onClick={onClose} style={{ color: "#000" }}><X size={16} /></button>
+        </div>
+
+        {/* Scrollable ticket */}
+        <div className="flex-1 overflow-y-auto">
+          <div id={printId} style={{
+            fontFamily: "'Courier New', Courier, monospace",
+            background: "#fff", color: "#000", fontWeight: 700,
+            padding: "20px 24px 16px", fontSize: 13, lineHeight: 1.5,
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, color: "#000" }}>*** KITCHEN ORDER TICKET ***</span>
+            </div>
+            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1.5, color: "#000" }}>{typeLabel}</span>
+            </div>
+            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Order #: {kot.orderNumber}</div>
+            {kot.tableId && <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Table: {kot.tableId}</div>}
+            {kot.waiterName && <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Waiter: {kot.waiterName}</div>}
+            {kot.customerName && <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>Customer: {kot.customerName}</div>}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 2 }}>
+              Time: {now.toLocaleTimeString("en-GB")}
+            </div>
+            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
+            {kot.items.map((it: any, i: number) => (
+              <div key={i} style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 900, color: "#000" }}>
+                  <span>{it.qty}x {it.name}</span>
+                </div>
+                {it.modifiers?.length > 0 && it.modifiers.map((m: string, j: number) => (
+                  <div key={j} style={{ fontSize: 11, fontWeight: 700, color: "#000", paddingLeft: 10 }}>+ {m}</div>
+                ))}
+              </div>
+            ))}
+            <div style={{ borderTop: "1px solid #000", margin: "8px 0" }} />
+          </div>
+        </div>
+
+        {/* Action bar */}
+        <div className="flex gap-2 px-5 py-3 border-t rounded-b-xl" style={{ borderColor: "#e5e7eb", background: "#f9fafb" }}>
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold border"
+            style={{ color: "#000", borderColor: "#d1d5db", background: "#fff" }}>
+            Skip
+          </button>
+          <button onClick={() => { triggerPrint(printId); onPrinted(); }}
+            className="flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5"
+            style={{ background: "#111", color: "#fff" }}>
+            <Printer size={13} /> Print KOT
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1149,8 +1232,8 @@ export default function POSPage() {
   const [finalizeIsQuick,    setFinalizeIsQuick]    = useState(false);
   const [cancelConfirmId,    setCancelConfirmId]    = useState<number | null>(null);
   const [modifyOrderId,      setModifyOrderId]      = useState<number | null>(null);
-  // Print KOT confirmation — auto-print is suspended, jobs sit here until the user confirms
-  const [pendingKotJobs,     setPendingKotJobs]     = useState<any[] | null>(null);
+  // Print KOT preview — auto-print is suspended; this sits here until the user opens the print dialog
+  const [pendingKot,         setPendingKot]         = useState<any | null>(null);
 
   // Quick Add Item modal
   const [showQuickAddItem,   setShowQuickAddItem]   = useState(false);
@@ -1242,8 +1325,9 @@ export default function POSPage() {
       })).json();
       const orderId = (order as any).order.id;
 
+      let createdItemIds: number[] = [];
       try {
-        await (await api["order-items"].bulk.$post({
+        const created = await (await api["order-items"].bulk.$post({
           json: {
             items: cartItems.map(i => ({
               orderId, menuItemId: i.menuItemId, name: i.name, price: i.price,
@@ -1253,30 +1337,27 @@ export default function POSPage() {
             })),
           },
         })).json();
+        createdItemIds = ((created as any)?.orderItems || []).map((i: any) => i.id);
       } catch (e) {
         console.error("[placeOrder] order-items bulk failed:", e);
       }
 
-      // Auto KOT print is suspended — build the print jobs but don't send them.
-      // The user is asked to confirm via the "Print KOT?" modal (see pendingKotJobs).
-      let kotJobs: any[] = [];
+      // Auto KOT print is suspended — instead surface a KOT print preview modal
+      // (like Bill/Invoice) that opens the browser print dialog on demand.
+      let kotPreview: any = null;
       if (apiStatus !== "draft") {
-        const printerGroups = cartItems.reduce((acc, item) => {
-          const pid = item.printerId ?? (item.categoryId != null ? categoryPrinterMap[item.categoryId] : null) ?? null;
-          if (pid) { (acc[pid] ||= []).push(item); }
-          return acc;
-        }, {} as Record<number, CartItem[]>);
-        kotJobs = Object.entries(printerGroups).map(([pid, items]) => ({
-          branchId, orderId, printerId: parseInt(pid),
-          idempotencyKey: `${orderId}-${pid}-kot-1`, type: "kot", status: "pending",
-          payload: JSON.stringify({
-            orderId, orderNumber: (order as any).order.orderNumber,
-            type: orderType, tableId: selectedTableId,
-            items: items.map(i => ({ ...i, modifiers: i.modifiers.map(m => m.name) })),
-          }),
-        }));
+        kotPreview = {
+          orderId, itemIds: createdItemIds,
+          orderNumber: (order as any).order.orderNumber,
+          type: orderType, tableId: selectedTableId, waiterName: selectedWaiterName,
+          customerName: customerName !== "Walk-in Customer" ? customerName : null,
+          items: cartItems.map(i => ({
+            name: i.name, qty: i.qty,
+            modifiers: i.modifiers.map(m => m.name),
+          })),
+        };
       }
-      return { ...order, kotJobs };
+      return { ...order, kotPreview };
     },
     onSuccess: (res: any, status) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -1286,8 +1367,8 @@ export default function POSPage() {
         setFinalizeIsQuick(true);
         setFinalizeOrderId(newOrderId);
       }
-      if (res?.kotJobs?.length > 0) {
-        setPendingKotJobs(res.kotJobs);
+      if (res?.kotPreview) {
+        setPendingKot(res.kotPreview);
       }
       resetOrder();
       showToast(status === "draft" ? "Order saved as draft" : "Order placed.");
@@ -1298,15 +1379,9 @@ export default function POSPage() {
     },
   });
 
-  const sendKotPrint = useMutation({
-    mutationFn: async (jobs: any[]) => (await api["print-jobs"].batch.$post({ json: { jobs } })).json(),
-    onSuccess: () => {
-      setPendingKotJobs(null);
-      showToast("KOT sent to kitchen.");
-    },
-    onError: (e: any) => {
-      console.error("[sendKotPrint] failed:", e);
-      showToast("Failed to print KOT. Please try again.");
+  const markKotPrinted = useMutation({
+    mutationFn: async (itemIds: number[]) => {
+      await Promise.all(itemIds.map(id => api["order-items"][":id"].$patch({ param: { id: String(id) }, json: { kotPrinted: true } })));
     },
   });
 
@@ -2135,27 +2210,17 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Print KOT confirmation — auto-print is suspended */}
-      {pendingKotJobs && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
-          <div className="rounded-xl border shadow-2xl p-5 w-72" style={{ background: SURF, borderColor: BORD }}>
-            <div className="font-bold text-sm mb-2" style={{ color: TEXT }}>Print KOT?</div>
-            <div className="text-xs mb-4" style={{ color: MUTED }}>
-              Order placed. Send the KOT to the kitchen printer now?
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setPendingKotJobs(null)}
-                className="flex-1 py-2 rounded border text-xs" style={{ borderColor: BORD, color: MUTED }}>Skip</button>
-              <button
-                onClick={() => sendKotPrint.mutate(pendingKotJobs)}
-                disabled={sendKotPrint.isPending}
-                className="flex-1 py-2 rounded text-xs font-semibold disabled:opacity-40"
-                style={{ background: GOLD, color: "var(--color-surface)" }}>
-                {sendKotPrint.isPending ? <Spinner size={12} /> : "Print KOT"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Print KOT preview — auto-print is suspended; shows items, Print opens the native browser print dialog */}
+      {pendingKot && (
+        <KotOverlay
+          kot={pendingKot}
+          onClose={() => setPendingKot(null)}
+          onPrinted={() => {
+            if (pendingKot.itemIds?.length > 0) markKotPrinted.mutate(pendingKot.itemIds);
+            showToast("KOT sent to print.");
+            setPendingKot(null);
+          }}
+        />
       )}
 
       {/* Quick Add Item Modal */}
