@@ -24,6 +24,10 @@ export const categories = new Hono()
   })
   .delete("/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
-    await db.update(schema.categories).set({ isActive: false }).where(eq(schema.categories.id, id));
+    const items = await db.select({ id: schema.menuItems.id }).from(schema.menuItems).where(eq(schema.menuItems.categoryId, id));
+    if (items.length > 0) {
+      return c.json({ error: `Cannot delete — ${items.length} item(s) use this category` }, 400);
+    }
+    await db.delete(schema.categories).where(eq(schema.categories.id, id));
     return c.json({ ok: true }, 200);
   });

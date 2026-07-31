@@ -1428,7 +1428,7 @@ export default function POSPage() {
 
   // ── Derived data
   const orders      = (ordersData as any)?.orders || [];
-  const categories  = (categoriesData as any)?.categories || [];
+  const categories  = ((categoriesData as any)?.categories || []).filter((c: any) => c.isActive);
   const allMenuItems = (menuData as any)?.menuItems || [];
   const menuItems   = allMenuItems.filter((item: any) => {
     if (activeFilter === "veg"   && !item.isVeg)      return false;

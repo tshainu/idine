@@ -43,6 +43,7 @@ export const menuItems = new Hono()
   })
   .delete("/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
-    await db.update(schema.menuItems).set({ isActive: false }).where(eq(schema.menuItems.id, id));
+    await db.delete(schema.menuItemVariations).where(eq(schema.menuItemVariations.menuItemId, id));
+    await db.delete(schema.menuItems).where(eq(schema.menuItems.id, id));
     return c.json({ ok: true }, 200);
   });

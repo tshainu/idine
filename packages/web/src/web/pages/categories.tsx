@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
-import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, ToggleLeft, ToggleRight, GripVertical, Search } from "lucide-react";
 
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
@@ -19,6 +19,7 @@ export default function CategoriesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [search, setSearch] = useState("");
 
   // Drag state
   const dragIdx = useRef<number | null>(null);
@@ -36,8 +37,10 @@ export default function CategoriesPage() {
   const categories: any[] = (catData as any)?.categories || [];
   const menuItems: any[] = (menuData as any)?.menuItems || [];
 
-  // Sort categories by sortOrder
-  const sorted = [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  // Sort categories by sortOrder, then filter by search
+  const sorted = [...categories]
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .filter(c => c.name?.toLowerCase().includes(search.trim().toLowerCase()));
 
   function itemCount(catId: number) {
     return menuItems.filter(m => m.categoryId === catId).length;
@@ -140,6 +143,13 @@ export default function CategoriesPage() {
             <div className="text-xs flex items-center ml-2" style={{ color: DIM }}>
               Drag rows to reorder
             </div>
+            <div className="relative flex-1 max-w-xs ml-auto">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: DIM }} />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search categories…"
+                className="w-full pl-8 pr-3 py-2 rounded-lg border text-xs outline-none"
+                style={{ background: SURF, borderColor: BORD, color: TEXT }} />
+            </div>
           </div>
 
           {isLoading ? (
@@ -147,8 +157,10 @@ export default function CategoriesPage() {
           ) : sorted.length === 0 ? (
             <div className="text-center py-16" style={{ color: DIM }}>
               <Tag size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm font-medium mb-1" style={{ color: MUTED }}>No categories yet</p>
-              <p className="text-xs">Create categories to organize your menu</p>
+              <p className="text-sm font-medium mb-1" style={{ color: MUTED }}>
+                {search.trim() ? "No categories match your search" : "No categories yet"}
+              </p>
+              <p className="text-xs">{search.trim() ? "Try a different search term" : "Create categories to organize your menu"}</p>
             </div>
           ) : (
             <div className="rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
