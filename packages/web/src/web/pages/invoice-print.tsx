@@ -99,7 +99,7 @@ export default function InvoicePrint() {
   // ── Components ──────────────────────────────────────────────────────────────
   const Divider = ({ dashed }: { dashed?: boolean }) => (
     <div style={{
-      borderTop: dashed ? "1px dashed #9ca3af" : "1px solid #374151",
+      borderTop: dashed ? "1px dashed #000" : "1px solid #000",
       margin: "6px 0",
     }} />
   );
@@ -109,7 +109,7 @@ export default function InvoicePrint() {
       display: "flex", justifyContent: "space-between",
       fontSize: bold ? 14 : 11,
       fontWeight: bold ? 800 : 400,
-      color: color || (bold ? "#000" : "#374151"),
+      color: color || "#000",
       padding: "2px 0",
     }}>
       <span>{label}</span>
@@ -176,7 +176,7 @@ export default function InvoicePrint() {
           background: "#fff",
           fontFamily: "'Courier New', Courier, monospace",
           fontSize: 12,
-          color: "#111",
+          color: "#000",
           padding: "16px 14px 20px",
           boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
           alignSelf: "flex-start",
@@ -198,12 +198,12 @@ export default function InvoicePrint() {
                 {(settings.restaurantName || branch?.name || "RESTAURANT").toUpperCase()}
               </div>
               {branch?.address && (
-                <div style={{ fontSize: 10, color: "#555", marginTop: 3, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 10, color: "#000", marginTop: 3, lineHeight: 1.5 }}>
                   {branch.address}
                 </div>
               )}
               {branch?.phone && (
-                <div style={{ fontSize: 10, color: "#555", marginTop: 1 }}>
+                <div style={{ fontSize: 10, color: "#000", marginTop: 1 }}>
                   Tel: {branch.phone}
                 </div>
               )}
@@ -216,7 +216,7 @@ export default function InvoicePrint() {
               fontSize: 10, fontWeight: 700, letterSpacing: 2,
               textTransform: "uppercase",
               padding: "2px 10px",
-              border: "1px solid #374151",
+              border: "1px solid #000",
               color: "#000",
             }}>
               {isBill ? "BILL" : "INVOICE"}
@@ -238,21 +238,21 @@ export default function InvoicePrint() {
           {/* Order meta */}
           <div style={{ fontSize: 11, lineHeight: 1.7 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "#555" }}>Order#</span>
+              <span style={{ color: "#000" }}>Order#</span>
               <span style={{ fontWeight: 700 }}>{order.orderNumber}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "#555" }}>Date</span>
+              <span style={{ color: "#000" }}>Date</span>
               <span>{formatDate(order.createdAt)}</span>
             </div>
             {order.tableId && (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#555" }}>Table</span>
+                <span style={{ color: "#000" }}>Table</span>
                 <span>{order.tableId}</span>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "#555" }}>Customer</span>
+              <span style={{ color: "#000" }}>Customer</span>
               <span>{order.customerName || "Walk-in"}</span>
             </div>
           </div>
@@ -262,7 +262,7 @@ export default function InvoicePrint() {
           {/* Column headers */}
           <div style={{
             display: "flex", justifyContent: "space-between",
-            fontSize: 10, color: "#555", fontWeight: 700,
+            fontSize: 10, color: "#000", fontWeight: 700,
             textTransform: "uppercase", paddingBottom: 4,
           }}>
             <span style={{ flex: 1 }}>Item</span>
@@ -283,7 +283,7 @@ export default function InvoicePrint() {
                 </span>
               </div>
               {it.qty > 1 && (
-                <div style={{ fontSize: 10, color: "#888", paddingBottom: 2 }}>
+                <div style={{ fontSize: 10, color: "#000", paddingBottom: 2 }}>
                   @ {Number(it.price).toFixed(2)} each
                 </div>
               )}
@@ -295,7 +295,7 @@ export default function InvoicePrint() {
           {/* Totals */}
           <div style={{ paddingTop: 2 }}>
             <Row label="Subtotal" value={`LKR ${subtotal.toFixed(2)}`} />
-            {discount > 0 && <Row label="Discount" value={`- LKR ${discount.toFixed(2)}`} color="#16a34a" />}
+            {discount > 0 && <Row label="Discount" value={`- LKR ${discount.toFixed(2)}`} color="#000" />}
             {(serviceCharge > 0 || serviceChargeRate > 0) && <Row label={`Service Charge${serviceChargeRate > 0 ? ` (${(serviceChargeRate*100).toFixed(0)}%)` : ''}`} value={`LKR ${serviceCharge.toFixed(2)}`} />}
           </div>
 
@@ -324,7 +324,7 @@ export default function InvoicePrint() {
                     />
                   ))
                 ) : (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0", color: "#374151" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0", color: "#000" }}>
                     <span>Payment Method</span>
                     <span style={{ fontWeight: 700 }}>{paymentMethod}</span>
                   </div>
@@ -335,10 +335,10 @@ export default function InvoicePrint() {
                 <Divider />
                 <Row label="AMOUNT PAID" value={money(amountPaid)} bold />
                 {balance > 0 && (
-                  <Row label="Balance (Change)" value={money(balance)} color="#16a34a" />
+                  <Row label="Balance (Change)" value={money(balance)} color="#000" />
                 )}
                 {balance < 0 && (
-                  <Row label="Balance Due" value={money(Math.abs(balance))} color="#dc2626" />
+                  <Row label="Balance Due" value={money(Math.abs(balance))} color="#000" />
                 )}
               </div>
             </>
@@ -346,7 +346,7 @@ export default function InvoicePrint() {
 
           {/* Notes */}
           {order.notes && (
-            <div style={{ fontSize: 10, color: "#555", margin: "6px 0", lineHeight: 1.5 }}>
+            <div style={{ fontSize: 10, color: "#000", margin: "6px 0", lineHeight: 1.5 }}>
               Note: {order.notes}
             </div>
           )}
@@ -356,7 +356,7 @@ export default function InvoicePrint() {
           {/* Footer */}
           <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, lineHeight: 1.8 }}>
             {footerText.split("\n").map((line: string, i: number) => (
-              <div key={i} style={{ color: i === 0 ? "#111" : "#6b7280", fontWeight: i === 0 ? 700 : 400 }}>
+              <div key={i} style={{ color: "#000", fontWeight: i === 0 ? 700 : 400 }}>
                 {line}
               </div>
             ))}

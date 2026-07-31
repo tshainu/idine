@@ -1149,6 +1149,8 @@ export default function POSPage() {
   const [finalizeIsQuick,    setFinalizeIsQuick]    = useState(false);
   const [cancelConfirmId,    setCancelConfirmId]    = useState<number | null>(null);
   const [modifyOrderId,      setModifyOrderId]      = useState<number | null>(null);
+  // Print KOT confirmation — auto-print is suspended, jobs sit here until the user confirms
+  const [pendingKotJobs,     setPendingKotJobs]     = useState<any[] | null>(null);
 
   // Quick Add Item modal
   const [showQuickAddItem,   setShowQuickAddItem]   = useState(false);
@@ -1255,28 +1257,26 @@ export default function POSPage() {
         console.error("[placeOrder] order-items bulk failed:", e);
       }
 
+      // Auto KOT print is suspended — build the print jobs but don't send them.
+      // The user is asked to confirm via the "Print KOT?" modal (see pendingKotJobs).
+      let kotJobs: any[] = [];
       if (apiStatus !== "draft") {
-        try {
-          const printerGroups = cartItems.reduce((acc, item) => {
-            const pid = item.printerId ?? (item.categoryId != null ? categoryPrinterMap[item.categoryId] : null) ?? null;
-            if (pid) { (acc[pid] ||= []).push(item); }
-            return acc;
-          }, {} as Record<number, CartItem[]>);
-          const jobs = Object.entries(printerGroups).map(([pid, items]) => ({
-            branchId, orderId, printerId: parseInt(pid),
-            idempotencyKey: `${orderId}-${pid}-kot-1`, type: "kot", status: "pending",
-            payload: JSON.stringify({
-              orderId, orderNumber: (order as any).order.orderNumber,
-              type: orderType, tableId: selectedTableId,
-              items: items.map(i => ({ ...i, modifiers: i.modifiers.map(m => m.name) })),
-            }),
-          }));
-          if (jobs.length > 0) await (await api["print-jobs"].batch.$post({ json: { jobs } })).json();
-        } catch (e) {
-          console.error("[placeOrder] print-jobs failed:", e);
-        }
+        const printerGroups = cartItems.reduce((acc, item) => {
+          const pid = item.printerId ?? (item.categoryId != null ? categoryPrinterMap[item.categoryId] : null) ?? null;
+          if (pid) { (acc[pid] ||= []).push(item); }
+          return acc;
+        }, {} as Record<number, CartItem[]>);
+        kotJobs = Object.entries(printerGroups).map(([pid, items]) => ({
+          branchId, orderId, printerId: parseInt(pid),
+          idempotencyKey: `${orderId}-${pid}-kot-1`, type: "kot", status: "pending",
+          payload: JSON.stringify({
+            orderId, orderNumber: (order as any).order.orderNumber,
+            type: orderType, tableId: selectedTableId,
+            items: items.map(i => ({ ...i, modifiers: i.modifiers.map(m => m.name) })),
+          }),
+        }));
       }
-      return order;
+      return { ...order, kotJobs };
     },
     onSuccess: (res: any, status) => {
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -1286,12 +1286,27 @@ export default function POSPage() {
         setFinalizeIsQuick(true);
         setFinalizeOrderId(newOrderId);
       }
+      if (res?.kotJobs?.length > 0) {
+        setPendingKotJobs(res.kotJobs);
+      }
       resetOrder();
-      showToast(status === "draft" ? "Order saved as draft" : "Order placed! KOT sent to kitchen.");
+      showToast(status === "draft" ? "Order saved as draft" : "Order placed.");
     },
     onError: (err: any) => {
       console.error("[placeOrder] failed:", err);
       showToast("Failed to place order. Please try again.");
+    },
+  });
+
+  const sendKotPrint = useMutation({
+    mutationFn: async (jobs: any[]) => (await api["print-jobs"].batch.$post({ json: { jobs } })).json(),
+    onSuccess: () => {
+      setPendingKotJobs(null);
+      showToast("KOT sent to kitchen.");
+    },
+    onError: (e: any) => {
+      console.error("[sendKotPrint] failed:", e);
+      showToast("Failed to print KOT. Please try again.");
     },
   });
 
@@ -2114,6 +2129,29 @@ export default function POSPage() {
                 className="flex-1 py-2 rounded text-xs font-semibold disabled:opacity-40"
                 style={{ background: "var(--color-danger)", color: "#fff" }}>
                 {updateOrderStatus.isPending ? <Spinner size={12} /> : "Cancel Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print KOT confirmation — auto-print is suspended */}
+      {pendingKotJobs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "#00000099" }}>
+          <div className="rounded-xl border shadow-2xl p-5 w-72" style={{ background: SURF, borderColor: BORD }}>
+            <div className="font-bold text-sm mb-2" style={{ color: TEXT }}>Print KOT?</div>
+            <div className="text-xs mb-4" style={{ color: MUTED }}>
+              Order placed. Send the KOT to the kitchen printer now?
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setPendingKotJobs(null)}
+                className="flex-1 py-2 rounded border text-xs" style={{ borderColor: BORD, color: MUTED }}>Skip</button>
+              <button
+                onClick={() => sendKotPrint.mutate(pendingKotJobs)}
+                disabled={sendKotPrint.isPending}
+                className="flex-1 py-2 rounded text-xs font-semibold disabled:opacity-40"
+                style={{ background: GOLD, color: "var(--color-surface)" }}>
+                {sendKotPrint.isPending ? <Spinner size={12} /> : "Print KOT"}
               </button>
             </div>
           </div>
