@@ -2257,27 +2257,50 @@ export default function POSPage() {
       {/* ── MODALS ── */}
 
       {/* Variation picker */}
+      {/* Variation picker — redesigned: item preview header + aligned grid of variation cards */}
       {varPickerItem && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }}>
-          <div className="w-[400px] rounded-2xl border" style={{ background: SURF, borderColor: BORD }}>
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: BORD }}>
-              <div>
-                <div className="font-bold text-sm" style={{ color: TEXT }}>{varPickerItem.name}</div>
-                <div className="text-xs mt-0.5" style={{ color: DIM }}>Select a variation</div>
+          <div className="w-[480px] rounded-2xl border overflow-hidden" style={{ background: SURF, borderColor: BORD }}>
+            {/* Header with item preview */}
+            <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: BORD, background: SURF2 }}>
+              <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center shrink-0" style={{ background: BG }}>
+                {varPickerItem.imageUrl
+                  ? <img src={varPickerItem.imageUrl} alt={varPickerItem.name} className="w-full h-full object-cover" />
+                  : <Camera size={20} strokeWidth={1} style={{ color: DIM }} />}
               </div>
-              <button onClick={() => setVarPickerItem(null)} style={{ color: DIM }}><X size={16} /></button>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm truncate" style={{ color: TEXT }}>{varPickerItem.name}</div>
+                <div className="text-xs mt-0.5" style={{ color: DIM }}>
+                  Choose a variation · {varPickerItem.variations.length} option{varPickerItem.variations.length !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <button onClick={() => setVarPickerItem(null)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:brightness-125"
+                style={{ color: DIM, background: BG }}><X size={15} /></button>
             </div>
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
-              <div className="flex flex-wrap gap-2">
+
+            {/* Variation grid */}
+            <div className="p-4 max-h-[65vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2.5">
                 {varPickerItem.variations.map((v: any) => {
                   const price = orderType === "dine-in" ? v.priceDineIn : orderType === "takeaway" ? v.priceTakeaway : v.priceDelivery;
                   return (
                     <button key={v.id}
                       onClick={() => { addToCart(varPickerItem, v); setVarPickerItem(null); }}
-                      className="flex flex-col items-center px-4 py-3 rounded-xl border transition-all hover:brightness-110"
-                      style={{ background: BG, borderColor: BORD, minWidth: "100px" }}>
-                      <span className="text-sm font-medium" style={{ color: TEXT }}>{v.name}</span>
-                      <span className="text-xs font-bold font-mono mt-1" style={{ color: GOLD }}>{Number(price).toFixed(2)}</span>
+                      className="flex flex-col rounded-xl border text-left transition-all hover:-translate-y-0.5"
+                      style={{ background: BG, borderColor: BORD, padding: "12px 14px" }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = GOLD)}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = BORD)}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold truncate" style={{ color: TEXT }}>{v.name}</span>
+                        <Plus size={13} style={{ color: GOLD }} />
+                      </div>
+                      <div className="flex items-baseline justify-between mt-2">
+                        <span className="text-[10px] uppercase tracking-wide" style={{ color: DIM }}>
+                          {orderType === "dine-in" ? "Dine In" : orderType === "takeaway" ? "Takeaway" : "Delivery"}
+                        </span>
+                        <span className="text-base font-bold font-mono" style={{ color: GOLD }}>{Number(price).toFixed(2)}</span>
+                      </div>
                     </button>
                   );
                 })}
