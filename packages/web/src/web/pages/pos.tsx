@@ -29,7 +29,8 @@ const DIM   = "var(--color-text-dim)";
 type OrderType = "dine-in" | "takeaway" | "delivery";
 type Modifier  = { id: number; name: string; groupName: string; price: number };
 type CartItem  = {
-  menuItemId: number | string;  // string for "itemId-varId" variations
+  cartKey: string;               // unique cart-row identity — "itemId" or "itemId-varId" for variations
+  menuItemId: number | null;     // real menu_items.id — always numeric, used for DB writes/FK
   name: string;
   price: number;
   qty: number;
@@ -1248,10 +1249,10 @@ export default function POSPage() {
   const [toast,              setToast]              = useState<string | null>(null);
 
   // Modifier picker state
-  const [modPickerItemId,    setModPickerItemId]    = useState<number | null>(null);
+  const [modPickerItemId,    setModPickerItemId]    = useState<string | null>(null);
 
   // Per-item kitchen note (e.g. "Low spicy") — prints on the KOT only
-  const [notePickerItemId,   setNotePickerItemId]   = useState<number | string | null>(null);
+  const [notePickerItemId,   setNotePickerItemId]   = useState<string | null>(null);
   const [noteDraft,          setNoteDraft]          = useState("");
 
   // Variation picker state
@@ -1394,15 +1395,17 @@ export default function POSPage() {
           console.error("[placeOrder] modify reconcile failed:", e);
         }
 
-        // Diff original vs current cart to find added / reduced-or-cancelled items
+        // Diff original vs current cart to find added / reduced-or-cancelled items.
+        // Keyed by name (not menuItemId) — different variations of the same base item
+        // (e.g. "Juice (Small)" vs "Juice (Large)") share one menuItemId but must stay distinct.
         const origMap = new Map<string, { name: string; qty: number }>();
         modifyOriginalItems.forEach(i => {
-          const key = String(i.menuItemId ?? i.name);
+          const key = i.name;
           origMap.set(key, { name: i.name, qty: (origMap.get(key)?.qty || 0) + i.qty });
         });
         const newMap = new Map<string, { name: string; qty: number }>();
         cartItems.forEach(i => {
-          const key = String(i.menuItemId ?? i.name);
+          const key = i.name;
           newMap.set(key, { name: i.name, qty: (newMap.get(key)?.qty || 0) + i.qty });
         });
         const addedItems: { name: string; qty: number }[] = [];
@@ -1579,8 +1582,9 @@ export default function POSPage() {
     setCustomerName(order.customerName || "Walk-in Customer");
     setSelectedTableId(order.tableId ?? null);
     setCartItems((items || []).map((i: any) => ({
-      menuItemId: i.menuItemId, name: i.name, price: i.price, qty: i.qty,
+      cartKey: String(i.id), menuItemId: i.menuItemId, name: i.name, price: i.price, qty: i.qty,
       discount: i.discount ?? 0, printerId: i.printerId ?? null, categoryId: i.categoryId ?? null, modifiers: [],
+      note: i.note || undefined,
     })));
     setModifyOriginalItems((items || []).map((i: any) => ({ menuItemId: i.menuItemId ?? null, name: i.name, qty: i.qty })));
     setModifyOrderId(orderId);
@@ -1606,27 +1610,27 @@ export default function POSPage() {
     const priceByType = variation
       ? (orderType === "dine-in" ? variation.priceDineIn : orderType === "takeaway" ? variation.priceTakeaway : variation.priceDelivery)
       : (orderType === "dine-in" ? (item.priceDineIn || item.price) : orderType === "takeaway" ? (item.priceTakeaway || item.price) : (item.priceDelivery || item.price));
-    const cartKey = variation ? `${item.id}-${variation.id}` : item.id;
+    const cartKey = variation ? `${item.id}-${variation.id}` : String(item.id);
     const name = variation ? `${item.name} (${variation.name})` : item.name;
     setCartItems(prev => {
-      const ex = prev.find(i => i.menuItemId === cartKey);
-      if (ex) return prev.map(i => i.menuItemId === cartKey ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { menuItemId: cartKey, name, price: priceByType, qty: 1, discount: 0, printerId: item.printerId ?? null, categoryId: item.categoryId ?? null, modifiers: [] }];
+      const ex = prev.find(i => i.cartKey === cartKey);
+      if (ex) return prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { cartKey, menuItemId: item.id, name, price: priceByType, qty: 1, discount: 0, printerId: item.printerId ?? null, categoryId: item.categoryId ?? null, modifiers: [] }];
     });
   }
-  function changeQty(id: number, delta: number) {
-    setCartItems(prev => prev.map(i => i.menuItemId === id ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0));
+  function changeQty(cartKey: string, delta: number) {
+    setCartItems(prev => prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0));
   }
-  function setDiscount(id: number, val: number) {
-    setCartItems(prev => prev.map(i => i.menuItemId === id ? { ...i, discount: isNaN(val) ? 0 : val } : i));
+  function setDiscount(cartKey: string, val: number) {
+    setCartItems(prev => prev.map(i => i.cartKey === cartKey ? { ...i, discount: isNaN(val) ? 0 : val } : i));
   }
-  function removeItem(id: number) { setCartItems(prev => prev.filter(i => i.menuItemId !== id)); }
-  function setItemModifiers(menuItemId: number, mods: Modifier[]) {
-    setCartItems(prev => prev.map(i => i.menuItemId === menuItemId ? { ...i, modifiers: mods } : i));
+  function removeItem(cartKey: string) { setCartItems(prev => prev.filter(i => i.cartKey !== cartKey)); }
+  function setItemModifiers(cartKey: string, mods: Modifier[]) {
+    setCartItems(prev => prev.map(i => i.cartKey === cartKey ? { ...i, modifiers: mods } : i));
   }
 
-  function setItemNote(menuItemId: number | string, note: string) {
-    setCartItems(prev => prev.map(i => i.menuItemId === menuItemId ? { ...i, note: note.trim() || undefined } : i));
+  function setItemNote(cartKey: string, note: string) {
+    setCartItems(prev => prev.map(i => i.cartKey === cartKey ? { ...i, note: note.trim() || undefined } : i));
   }
 
   // Quick Add Item mutation
@@ -2060,7 +2064,7 @@ export default function POSPage() {
                   </thead>
                   <tbody>
                     {cartItems.map((item) => (
-                      <tr key={item.menuItemId} className="border-t animate-fade-up" style={{ borderColor: BORD }}>
+                      <tr key={item.cartKey} className="border-t animate-fade-up" style={{ borderColor: BORD }}>
                         <td className="px-3 py-2">
                           <div className="text-xs font-medium" style={{ color: TEXT }}>{item.name}</div>
                           {/* Modifiers */}
@@ -2071,13 +2075,13 @@ export default function POSPage() {
                                 {m.name}{m.price > 0 ? ` +${m.price.toFixed(2)}` : ""}
                               </span>
                             ))}
-                            <button onClick={() => setModPickerItemId(item.menuItemId)}
+                            <button onClick={() => setModPickerItemId(item.cartKey)}
                               className="text-[10px] px-1.5 py-0.5 rounded border transition-colors hover:brightness-110"
                               style={{ borderColor: BORD, color: DIM }}>
                               <SlidersHorizontal size={9} className="inline mr-0.5" />
                               Mod
                             </button>
-                            <button onClick={() => { setNotePickerItemId(item.menuItemId); setNoteDraft(item.note || ""); }}
+                            <button onClick={() => { setNotePickerItemId(item.cartKey); setNoteDraft(item.note || ""); }}
                               className="text-[10px] px-1.5 py-0.5 rounded border transition-colors hover:brightness-110"
                               style={{ borderColor: item.note ? GOLD : BORD, color: item.note ? GOLD : DIM }}>
                               <FileText size={9} className="inline mr-0.5" />
@@ -2093,18 +2097,18 @@ export default function POSPage() {
                         <td className="px-2 py-2 text-xs text-right font-mono" style={{ color: MUTED }}>{item.price.toFixed(2)}</td>
                         <td className="px-2 py-2">
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => changeQty(item.menuItemId, -1)}
+                            <button onClick={() => changeQty(item.cartKey, -1)}
                               className="w-5 h-5 flex items-center justify-center rounded border transition-colors"
                               style={{ borderColor: BORD, color: TEXT }}><Minus size={9} /></button>
                             <span className="w-5 text-center text-xs font-bold" style={{ color: TEXT }}>{item.qty}</span>
-                            <button onClick={() => changeQty(item.menuItemId, 1)}
+                            <button onClick={() => changeQty(item.cartKey, 1)}
                               className="w-5 h-5 flex items-center justify-center rounded transition-colors"
                               style={{ background: GOLD, color: "var(--color-surface)" }}><Plus size={9} /></button>
                           </div>
                         </td>
                         <td className="px-2 py-2">
                           <input type="number" placeholder="0" value={item.discount || ""}
-                            onChange={e => setDiscount(item.menuItemId, parseFloat(e.target.value))}
+                            onChange={e => setDiscount(item.cartKey, parseFloat(e.target.value))}
                             className="w-14 px-1.5 py-1 rounded border text-xs text-center focus:outline-none"
                             style={{ background: SURF2, borderColor: BORD, color: TEXT }} />
                         </td>
@@ -2112,7 +2116,7 @@ export default function POSPage() {
                           {itemTotal(item).toFixed(2)}
                         </td>
                         <td className="px-2 py-2">
-                          <button onClick={() => removeItem(item.menuItemId)}
+                          <button onClick={() => removeItem(item.cartKey)}
                             className="w-5 h-5 flex items-center justify-center rounded-full text-white"
                             style={{ background: "var(--color-danger)" }}><X size={10} /></button>
                         </td>
@@ -2285,7 +2289,7 @@ export default function POSPage() {
 
       {/* Modifier picker */}
       {modPickerItemId !== null && (() => {
-        const item = cartItems.find(i => i.menuItemId === modPickerItemId);
+        const item = cartItems.find(i => i.cartKey === modPickerItemId);
         if (!item) return null;
         return (
           <ModifierPicker
@@ -2298,7 +2302,7 @@ export default function POSPage() {
 
       {/* Kitchen note picker — per cart item, prints only on the KOT */}
       {notePickerItemId !== null && (() => {
-        const item = cartItems.find(i => i.menuItemId === notePickerItemId);
+        const item = cartItems.find(i => i.cartKey === notePickerItemId);
         if (!item) return null;
         return (
           <div className="fixed inset-0 z-[999] flex items-center justify-center" style={{ background: "#00000099" }}>
