@@ -1,30 +1,45 @@
-# iDine POS — Task List (batch of 18 requests)
+# iDine POS — Task List (batch of 18 requests) — ALL DONE, deployed to VPS + GitHub
 
-Repo: /home/user/idine (github.com/tshainu/idine)
+Repo: /home/user/idine (github.com/tshainu/idine), latest commit 18fbccd
 VPS: root@69.169.97.195, /var/www/idine, pm2 process "idine", port 6062
-IMPORTANT: local.db is tracked in git history but is LIVE DATA on VPS — never `git checkout`/`git reset` it. Only `git merge --ff-only` for code.
 
-## Status
-1. [x] Modify-order flow: Place Order in modify mode now PATCHes existing order + reconciles order_items, then opens choice modal (All Items / Updated Items Only), reduced/cancelled items shown as "-N Name" + CANCEL tag
-2. [x] Invoice print: reduced L/R padding, bold item header row (900 weight) + divider under it
-3. [x] Qty column moved right next to Price (right-aligned, marginLeft 8), extra paddingRight on item name
-4. [x] Currency: item price/amount + subtotal/discount/service charge are bare numbers now; LKR kept only on TOTAL/Cash Given/Amount Paid/Balance
-5. [x] Invoice header image maxHeight 90 -> 130
-6. [x] Cancel/Draft/Quick Invoice/Place Order buttons: filter brightness(0.8) applied
-7. [x] Category "All" tab — sorted by best-sellers (new /api/menu-items/best-sellers endpoint)
-8. [ ] BUG: Finalize Sale sometimes shows payable=0, cart details not showing — investigate & fix
-9. [ ] Redesign variation-picker modal — more options, proper alignment
-10. [ ] Add Export (CSV/Excel) buttons: Items, Categories, Sales list, Purchases, Expenses
-11. [ ] BUG: Register "Today's Summary" — cancelled orders count always 0
-12. [x] Running-order search — includes customer mobile number
-13. [x] Double-click running order → opens Order Details modal
-14. [x] Button label: "Update Order" in modify mode vs "Place Order" normal
-15. [ ] Add per-cart-item note field (next to Mod button) — prints only on KOT
-16. [x] Toast centered in top bar between logo and filter pills
-17. [ ] Combo & Promo management: new page/tabs, CRUD + suspend, sellable from POS
-18. [ ] Category table: add sort icon column; new category auto-gets next sort order number
+IMPORTANT LESSONS FOR NEXT TIME:
+- local.db is tracked in git history but is LIVE DATA on VPS — never `git checkout`/`git reset` it.
+- `drizzle-kit push --force` can DROP+RECREATE a table instead of ALTER when adding multiple
+  NOT NULL columns with defaults (happened to menu_items — wiped it). Prefer plain
+  `sqlite3 local.db "ALTER TABLE x ADD COLUMN ..."` for schema changes on the production DB from now on.
+- ALWAYS `git push` right after `git commit` — spent one whole round having committed 5x locally
+  without pushing, user saw nothing live.
+- Always take a fresh local.db backup to /root/ before ANY migration or destructive-looking command.
 
-## Deployed so far
-Commits pushed to master: a121078 (items 1,6,7,12,13,14,16), 3c5108d (items 2,3,4,5).
-NOT yet deployed to VPS this round — still batching remaining items before one deploy pass.
-Remaining: 8, 9, 10, 11, 15, 17, 18 — continue from here if interrupted.
+## Status — all 18 done
+1. Modify-order updates in place + KOT choice (All/Updated items, cancel markers)
+2-5. Invoice/Bill: margins, bold header+divider, qty near price, Rs/.00 removed except Total/Cash/Paid/Balance, bigger header image
+6. Darker action buttons
+7. "All" tab sorted by best-sellers
+8. Fixed Finalize Sale 0-payable/empty-cart-details bug (decoupled query)
+9. Redesigned variation picker (image header + aligned grid cards)
+10. CSV export added: Items, Categories, Sales, Purchases, Expenses
+11. Fixed cancelled-orders always-0 bug (backend was hiding cancelled orders by default)
+12. Running-order search includes mobile number
+13. Double-click running order opens details
+14. "Update Order" vs "Place Order" label
+15. Per-item kitchen note field, prints on KOT only
+16. Toast centered in top bar
+17. Combo & Promo management page (2 tabs, CRUD+suspend, sellable from POS) — NEW page /combo-promo
+18. Category sort icon + auto next-sort-order on create
+
+## Bonus fixes discovered along the way
+- Fixed FK constraint crash when ordering items with variations (composite cart key was being
+  sent as the real DB menu_item_id) — split into cartKey (UI identity) vs menuItemId (real FK).
+- Fixed dead "Export CSV" button on Sales page (existed with no onClick).
+- Fixed the "Combo" filter pill in POS that existed with zero matching logic.
+
+## Incident log
+- Aug 1: drizzle-kit push wiped menu_items table when adding isCombo/originalPrice columns.
+  Caught within ~1 min via row-count check, restored from pre-migration backup
+  (/root/idine_local_db_pre_migration_1785557973.db), zero data loss (90 orders/267 menu
+  items/45 categories all intact). Re-applied the 2 columns + combo_items table via manual
+  ALTER TABLE / CREATE TABLE instead. Verified live afterward.
+
+All work pushed to GitHub master and deployed+verified live on VPS (200 OK, no new errors).
