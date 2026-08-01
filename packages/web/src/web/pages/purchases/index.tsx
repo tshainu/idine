@@ -4,8 +4,9 @@ import { getBranchId } from "../../lib/store";
 import { Sidebar } from "../../components/layout/sidebar";
 import {
   Plus, Pencil, Trash2, Search, ShoppingBag, CreditCard,
-  ChevronDown, ChevronRight, X, Check, Clock, AlertCircle
+  ChevronDown, ChevronRight, X, Check, Clock, AlertCircle, Download
 } from "lucide-react";
+import { exportToCSV } from "../../lib/csv";
 
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
@@ -152,11 +153,23 @@ export default function PurchasesListPage() {
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-6 border-b shrink-0" style={{ background: SURF, borderColor: BORD }}>
           <div className="font-bold text-sm" style={{ color: TEXT }}>Purchases</div>
-          <button onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: GOLD, color: "var(--color-surface)" }}>
-            <Plus size={13} /> New Purchase
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => exportToCSV("purchases", filtered.map(p => ({
+                Date: p.purchaseDate, Supplier: p.supplierName || "", Item: p.itemDescription || "",
+                Invoice: p.invoiceNumber || "", Qty: p.qty, "Unit Cost": p.unitCost,
+                Total: Number(p.qty || 0) * Number(p.unitCost || 0), "Amount Paid": p.amountPaid,
+                Status: p.status,
+              })))}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border"
+              style={{ background: "transparent", borderColor: BORD, color: TEXT }}>
+              <Download size={13} /> Export
+            </button>
+            <button onClick={() => { resetForm(); setShowForm(true); }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: GOLD, color: "var(--color-surface)" }}>
+              <Plus size={13} /> New Purchase
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">

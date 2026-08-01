@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { getBranchId } from "../lib/store";
 import { Sidebar } from "../components/layout/sidebar";
 import { Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { exportToCSV } from "../lib/csv";
 
 const GOLD = "var(--color-gold)";
 const BG = "var(--color-bg)";
@@ -134,7 +135,12 @@ export default function SalesPage() {
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-6 border-b shrink-0" style={{ background: SURF, borderColor: BORD }}>
           <div className="font-bold text-base" style={{ color: TEXT }}>Sales</div>
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+          <button onClick={() => exportToCSV("sales", sorted.map(o => ({
+              "Order #": o.orderNumber, Date: new Date(o.createdAt).toLocaleString(), Type: o.type,
+              Status: o.status, Customer: o.customerName || "Walk-in", Items: (o.items || []).length,
+              Total: Number(o.total || 0).toFixed(2),
+            })))}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:brightness-110"
             style={{ background: BORD, color: MUTED }}>
             <Download size={13} />
             Export CSV
