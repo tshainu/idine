@@ -32,6 +32,7 @@ const NAV: NavSection[] = [
       { path: "/products",   label: "List Item",     icon: UtensilsCrossed },
       { path: "/categories", label: "List Category",  icon: Tag },
       { path: "/modifiers",  label: "List Modifiers", icon: SlidersHorizontal },
+      { path: "/combo-promo", label: "Combo & Promo", icon: Package },
     ],
   },
   {

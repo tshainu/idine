@@ -77,6 +77,8 @@ export const menuItems = sqliteTable("menu_items", {
   isVeg: integer("is_veg", { mode: "boolean" }).notNull().default(false),
   isBeverage: integer("is_beverage", { mode: "boolean" }).notNull().default(false),
   isPromo: integer("is_promo", { mode: "boolean" }).notNull().default(false),
+  isCombo: integer("is_combo", { mode: "boolean" }).notNull().default(false),
+  originalPrice: real("original_price").notNull().default(0), // for promos — the "was" price shown struck-through
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
 });
@@ -92,6 +94,15 @@ export const menuItemVariations = sqliteTable("menu_item_variations", {
   priceDelivery: real("price_delivery").notNull().default(0),
   loyaltyPoint: real("loyalty_point").notNull().default(0),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+});
+
+// Combo included items — which menu items make up a combo (menuItems.isCombo = true row)
+export const comboItems = sqliteTable("combo_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  comboId: integer("combo_id").references(() => menuItems.id).notNull(),
+  menuItemId: integer("menu_item_id").references(() => menuItems.id),
+  name: text("name").notNull(), // snapshot, so it still displays if the source item is later deleted
+  qty: integer("qty").notNull().default(1),
 });
 
 // Tables (restaurant floor tables)

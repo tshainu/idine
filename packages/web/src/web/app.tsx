@@ -12,6 +12,7 @@ import PurchasesList from "./pages/purchases/index";
 import PurchaseItems from "./pages/purchases/items";
 import PurchaseSuppliers from "./pages/purchases/suppliers";
 import Products from "./pages/products";
+import ComboPromo from "./pages/combo-promo";
 import Expenses from "./pages/expenses";
 import Reports from "./pages/reports";
 import SalesReport from "./pages/reports/sales";
@@ -49,6 +50,7 @@ function App() {
         <Route path="/purchases/items" component={PurchaseItems} />
         <Route path="/purchases/suppliers" component={PurchaseSuppliers} />
         <Route path="/products" component={Products} />
+        <Route path="/combo-promo" component={ComboPromo} />
         <Route path="/expenses" component={Expenses} />
         <Route path="/reports" component={SalesReport} />
         <Route path="/reports/sales" component={SalesReport} />

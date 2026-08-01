@@ -1675,6 +1675,7 @@ export default function POSPage() {
     if (activeFilter === "veg"   && !item.isVeg)      return false;
     if (activeFilter === "bev"   && !item.isBeverage)  return false;
     if (activeFilter === "promo" && !item.isPromo)     return false;
+    if (activeFilter === "combo" && !item.isCombo)     return false;
     if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
