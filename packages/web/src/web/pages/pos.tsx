@@ -908,7 +908,10 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
   const order = (data as any)?.order;
   const items: any[] = (data as any)?.items || [];
   // Plain number, no currency symbol, no trailing ".00" on whole numbers
-  const num = (n: number) => { const v = Number(n || 0); return Number.isInteger(v) ? String(v) : v.toFixed(2); };
+  const num = (n: number) => {
+    const v = Number(n || 0);
+    return v.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 });
+  };
   // LKR-prefixed — used only for TOTAL / Cash Given / Amount Paid / Balance
   const money = (n: number) => `LKR ${num(n)}`;
   const isInvoice = mode === "invoice";
@@ -954,10 +957,10 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
               ? <div className="text-center py-16 text-sm" style={{ color: "var(--color-danger)" }}>Failed to load order</div>
               : (
                 <div id={printId} style={{
-                  fontFamily: "'Courier New', Courier, monospace",
+                  fontFamily: "'Roboto', Arial, sans-serif",
                   background: "#fff",
                   color: "#000",
-                  fontWeight: 600,
+                  fontWeight: 500,
                   padding: "20px 10px 16px",
                   fontSize: 13,
                   lineHeight: 1.5,
@@ -976,20 +979,20 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   <div style={{ borderTop: "1px solid #000", margin: "10px 0" }} />
 
                   {/* Order meta */}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#000", marginBottom: 2 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 2 }}>
                     <span>Order #: <strong style={{ color: "#000" }}>{order.orderNumber}</strong></span>
                     <span>{dateStr}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#000", marginBottom: 2 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 2 }}>
                     <span>{timeStr}</span>
                   </div>
                   {order.customerName && order.customerName !== "Walk-in Customer" && (
-                    <div style={{ fontSize: 11, color: "#000", marginBottom: 2 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 2 }}>
                       Customer: <strong style={{ color: "#000" }}>{order.customerName}</strong>
                     </div>
                   )}
                   {order.tableId && (
-                    <div style={{ fontSize: 11, color: "#000", marginBottom: 2 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#000", marginBottom: 2 }}>
                       Table: <strong style={{ color: "#000" }}>{order.tableId}</strong>
                     </div>
                   )}
@@ -1000,36 +1003,36 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                   {/* Items header */}
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 900, color: "#000", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
                     <span style={{ flex: 1 }}>Item</span>
-                    <span style={{ width: 30, textAlign: "right" }}>Qty</span>
-                    <span style={{ width: 60, textAlign: "right", marginLeft: 8 }}>Price</span>
-                    <span style={{ width: 68, textAlign: "right", marginLeft: 8 }}>Amount</span>
+                    <span style={{ width: 18, textAlign: "right" }}>Qty</span>
+                    <span style={{ width: 46, textAlign: "right", marginLeft: 4 }}>Price</span>
+                    <span style={{ width: 52, textAlign: "right", marginLeft: 4 }}>Amount</span>
                   </div>
                   <div style={{ borderTop: "2px solid #000", marginBottom: 6 }} />
 
                   {/* Items */}
                   {items.map((it: any, i: number) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3, paddingBottom: 3, borderBottom: "1px dotted #999" }}>
-                      <span style={{ flex: 1, paddingRight: 16 }}>{it.name}</span>
-                      <span style={{ width: 30, textAlign: "right", color: "#000" }}>{it.qty}</span>
-                      <span style={{ width: 60, textAlign: "right", color: "#000", marginLeft: 8 }}>{num(it.price)}</span>
-                      <span style={{ width: 68, textAlign: "right", fontWeight: 700, marginLeft: 8 }}>{num(it.total)}</span>
+                      <span style={{ flex: 1, paddingRight: 16, fontWeight: 500 }}>{it.name}</span>
+                      <span style={{ width: 18, textAlign: "right", color: "#000" }}>{it.qty}</span>
+                      <span style={{ width: 46, textAlign: "right", color: "#000", marginLeft: 4 }}>{num(it.price)}</span>
+                      <span style={{ width: 52, textAlign: "right", fontWeight: 700, marginLeft: 4 }}>{num(it.total)}</span>
                     </div>
                   ))}
 
                   {/* Totals block */}
                   <div style={{ borderTop: "1px solid #000", marginTop: 8, paddingTop: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                       <span>Subtotal</span>
                       <span>{num(subtotal)}</span>
                     </div>
                     {discount > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                         <span>Discount</span>
                         <span>- {num(discount)}</span>
                       </div>
                     )}
                     {serviceCharge > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                         <span>Service Charge</span>
                         <span>{num(serviceCharge)}</span>
                       </div>
@@ -1044,19 +1047,19 @@ function InvoiceOverlay({ orderId, onClose, mode = "invoice" }: {
                       <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #000" }}>
                         {payments.length > 1 ? (
                           payments.map((p, i) => (
-                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                               <span>Paid ({p.method}){p.ref ? ` — ${p.ref}` : ""}</span>
                               <span>{money(p.amount)}</span>
                             </div>
                           ))
                         ) : (
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                             <span>Payment Method</span>
-                            <span style={{ fontWeight: 600 }}>{paymentMethod}</span>
+                            <span style={{ fontWeight: 700 }}>{paymentMethod}</span>
                           </div>
                         )}
                         {paymentMethod === "Cash" && cashGiven > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#000", marginBottom: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: "#000", marginBottom: 3 }}>
                             <span>Cash Given</span>
                             <span>{money(cashGiven)}</span>
                           </div>
@@ -1611,7 +1614,9 @@ export default function POSPage() {
       ? (orderType === "dine-in" ? variation.priceDineIn : orderType === "takeaway" ? variation.priceTakeaway : variation.priceDelivery)
       : (orderType === "dine-in" ? (item.priceDineIn || item.price) : orderType === "takeaway" ? (item.priceTakeaway || item.price) : (item.priceDelivery || item.price));
     const cartKey = variation ? `${item.id}-${variation.id}` : String(item.id);
-    const name = variation ? `${item.name} (${variation.name})` : item.name;
+    // Abbreviate the variation to its first letter, capitalized, e.g. "Full" -> "(F)"
+    const varInitial = variation?.name?.trim()?.[0]?.toUpperCase();
+    const name = variation ? `${item.name} (${varInitial})` : item.name;
     setCartItems(prev => {
       const ex = prev.find(i => i.cartKey === cartKey);
       if (ex) return prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + 1 } : i);
